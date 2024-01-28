@@ -184,11 +184,54 @@ fn initialize_tiled_map(mut commands: Commands, asset_server: Res<AssetServer>) 
     commands.insert_resource(TiledMap(map));
 }
 
+enum Checkpoint {
+    End,
+}
+
+#[derive(Component)]
+struct CheckpointResource(Checkpoint);
+
 #[derive(Resource)]
 struct MapResource(OldMap);
 
 #[derive(Resource)]
 struct LastJumpTime(Timer);
+
+fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
+    map.0.layers().into_iter().for_each(|layer| {
+        layer.as_object_layer().and_then(|object_layer| {
+            object_layer.objects().into_iter().for_each(|object| {
+                object.properties.get("checkpoint").and_then(
+                    |checkpoint_type| match checkpoint_type {
+                        PropertyValue::StringValue(checkpoint_type) => {
+                            if checkpoint_type == "start" {
+                                commands.spawn((
+                                    ObjectComponent(Object {
+                                        position: Point {
+                                            x: object.x,
+                                            y: -object.y,
+                                        },
+                                        size: Size {
+                                            width: 100.,
+                                            height: 100.,
+                                        },
+                                        color: "#ff0000".to_string(),
+                                    }),
+                                    Collider::cuboid(100., 100.),
+                                    CheckpointResource(Checkpoint::End),
+                                ));
+                                println!("spawned start");
+                            }
+                            Some(())
+                        }
+                        _ => None,
+                    },
+                );
+            });
+            Some(())
+        });
+    })
+}
 
 fn initialize_enemy_spawns(
     mut commands: Commands,
@@ -837,6 +880,7 @@ impl Plugin for StartupPlugin {
                     initialize_tiled_map,
                     apply_deferred,
                     initialize_player,
+                    initialize_checkmarks,
                     initialize_map_collisions,
                     initialize_enemy_spawns,
                 )

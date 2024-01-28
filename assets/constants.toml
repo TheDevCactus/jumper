@@ -1,7 +1,7 @@
 character_sheet = "characters"
 player_speed = 900
-max_player_speed= 150
-jump_force= 4500
+max_player_speed= 5400
+jump_force= 12000
 initial_jump_time= 0.20
 gravity= 1200
 squish_bounce_force = 200
