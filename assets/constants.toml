@@ -1,0 +1,12 @@
+character_sheet = "characters"
+player_speed = 900
+max_player_speed= 150
+jump_force= 4500
+initial_jump_time= 0.20
+gravity= 1200
+squish_bounce_force = 200
+trick_time = 500
+dash_force = 5000
+curve_pow= 1.2
+grounded_decay = 0.2
+grounded_threshold = 1

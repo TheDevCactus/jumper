@@ -13,9 +13,21 @@
             "scaleInDock": 1.5,
             "scaleInEditor": 4
         },
+        "assets/characters.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 5.5
+        },
         "assets/sheet.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 3
+        },
+        "assets/untitled_old.tmx": {
+            "scale": 1.0446472772277227,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 801.2273790836123,
+                "y": 480.5449752687854
+            }
         },
         "untitled.tmx": {
             "scale": 5.5,
@@ -26,7 +38,12 @@
             }
         }
     },
+    "frame.defaultDuration": 100,
     "last.imagePath": "/home/morgan/jumper/assets/tilesets",
+    "last.worldFilePath": "/home/morgan/jumper/assets",
+    "loadedWorlds": [
+        "/home/morgan/jumper/assets/world.world"
+    ],
     "map.fixedSize": false,
     "map.lastUsedFormat": "tmx",
     "map.tileHeight": 16,
@@ -36,13 +53,15 @@
     ],
     "project": "jumper.tiled-project",
     "recentFiles": [
+        "assets/untitled_old.tmx",
+        "assets/characters.tsx",
         "assets/sheet.tsx",
         "Tileset.tsx",
         "untitled.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {
-        "height": 16,
-        "width": 16
+        "height": 32,
+        "width": 32
     }
 }

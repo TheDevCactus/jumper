@@ -1,4 +1,8 @@
+use std::time::Duration;
+
 use bevy::ecs::world;
+use bevy::input::keyboard::KeyboardInput;
+use bevy::time::Stopwatch;
 use bevy::{asset, prelude::*};
 use bevy_xpbd_2d::prelude::*;
 use bevy_xpbd_2d::{
@@ -7,18 +11,52 @@ use bevy_xpbd_2d::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json;
-use tiled::{Loader, PropertyValue};
+use tiled::{Frame, Loader, PropertyValue};
 
-const PLAYER_SPEED: f32 = 1500.;
-const MAX_PLAYER_SPEED: f32 = 300.;
+#[derive(Serialize, Deserialize, Resource, Debug)]
+struct Constants {
+    dash_force: f32,
+    trick_time: f32,
+    squish_bounce_force: f32,
+    character_sheet: String,
+    player_speed: f32,
+    max_player_speed: f32,
+    jump_force: f32,
+    initial_jump_time: f32,
+    gravity: f32,
+    curve_pow: f32,
+    grounded_decay: f32,
+    grounded_threshold: f32,
+}
 
-const JUMP_FORCE: f32 = 11000.;
-const INITIAL_JUMP_TIME: f32 = 0.20;
-const GRAVITY: f32 = 1000.;
-const CURVE_POW: f32 = 6.;
+fn initialize_constants(mut commands: Commands) {
+    let raw = std::fs::read_to_string("./assets/constants.toml").unwrap();
+    let constants = toml::from_str::<Constants>(&raw).unwrap();
+    // print the constants to the console
+    commands.insert_resource(constants);
+}
 
-const GROUNDED_DECAY: f32 = 0.9;
-const GROUNDED_THRESHOLD: f32 = 1.;
+#[derive(Component)]
+struct LoopingIncrementer {
+    start: usize,
+    end: usize,
+    current: usize,
+}
+
+impl LoopingIncrementer {
+    pub fn increment(&mut self) -> usize {
+        self.current += 1;
+        if self.current > self.end {
+            self.current = self.start;
+        }
+        self.current
+    }
+}
+
+#[derive(Component)]
+struct AnimationTimer(Timer);
+
+struct SpriteAnimationController;
 
 #[derive(Serialize, Deserialize, Component, Copy, Clone, Debug)]
 struct Point {
@@ -88,8 +126,14 @@ struct TiledMap(tiled::Map);
 #[derive(Resource)]
 struct TiledTileset(tiled::Tileset);
 
-#[derive(Resource)]
-struct Tileset(Handle<TextureAtlas>);
+#[derive(Component, Resource)]
+struct TextureAtlasHandle(Handle<TextureAtlas>);
+
+#[derive(Component)]
+struct Tileset(tiled::Tileset);
+
+#[derive(Component)]
+struct TilesetName(String);
 
 fn initialize_tiled_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut loader = Loader::new();
@@ -109,8 +153,34 @@ fn initialize_tiled_map(mut commands: Commands, asset_server: Res<AssetServer>) 
             Some(Vec2::new(0., -0.5)),
         );
         let handle = asset_server.add(atlas);
-        commands.insert_resource(Tileset(handle));
+        commands.spawn((
+            TilesetName(tileset.name.clone()),
+            TextureAtlasHandle(handle.clone()),
+        ));
+        commands.insert_resource(TextureAtlasHandle(handle))
     }
+    let characters = loader.load_tsx_tileset("./assets/characters.tsx").unwrap();
+    let p = characters.image.as_ref().unwrap().source.to_str().unwrap();
+    let x = String::from(p);
+    let x = x.split("assets").collect::<Vec<&str>>()[1];
+    let x = format!(".{}", x);
+    let atlas = TextureAtlas::from_grid(
+        asset_server.load(x),
+        Vec2::new(characters.tile_width as f32, characters.tile_height as f32),
+        characters.columns as usize,
+        characters.tilecount as usize / characters.columns as usize,
+        Some(Vec2::new(
+            characters.offset_x as f32,
+            characters.offset_y as f32,
+        )),
+        Some(Vec2::new(0., -0.5)),
+    );
+    let handle = asset_server.add(atlas);
+    commands.spawn((
+        TilesetName(characters.name.clone()),
+        TextureAtlasHandle(handle.clone()),
+        Tileset(characters),
+    ));
     commands.insert_resource(TiledMap(map));
 }
 
@@ -120,13 +190,11 @@ struct MapResource(OldMap);
 #[derive(Resource)]
 struct LastJumpTime(Timer);
 
-const ENEMY_WIDTH: f32 = 10.;
-const ENEMY_HEIGHT: f32 = 10.;
-
 fn initialize_enemy_spawns(
     mut commands: Commands,
     map: Res<TiledMap>,
-    texture_atlas: Res<Tileset>,
+    constants: Res<Constants>,
+    texture_atlas: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
 ) {
     map.0.layers().into_iter().for_each(|layer| {
         layer.as_object_layer().and_then(|object_layer| {
@@ -136,10 +204,17 @@ fn initialize_enemy_spawns(
                     .get("spawn")
                     .and_then(|spawn_id| match spawn_id {
                         PropertyValue::StringValue(id) => {
+                            let character_atlas = texture_atlas
+                                .iter()
+                                .find(|(_, name, _)| name.0 == constants.character_sheet)
+                                .unwrap();
                             if id == "enemy_1" {
                                 commands.spawn((
                                     Enemy,
-                                    Collider::cuboid(ENEMY_WIDTH, ENEMY_HEIGHT),
+                                    Collider::cuboid(
+                                        character_atlas.2 .0.tile_width as f32,
+                                        character_atlas.2 .0.tile_height as f32,
+                                    ),
                                     LinearVelocity::ZERO,
                                     RigidBody::Dynamic,
                                     LockedAxes::ROTATION_LOCKED,
@@ -153,8 +228,8 @@ fn initialize_enemy_spawns(
                                             y: -object.y,
                                         },
                                         size: Size {
-                                            width: ENEMY_WIDTH,
-                                            height: ENEMY_HEIGHT,
+                                            width: character_atlas.2 .0.tile_width as f32,
+                                            height: character_atlas.2 .0.tile_height as f32,
                                         },
                                         color: "#ff0000".to_string(),
                                     }),
@@ -163,7 +238,7 @@ fn initialize_enemy_spawns(
                                             object.x, -object.y, 0.,
                                         )),
                                         sprite: TextureAtlasSprite::new(0),
-                                        texture_atlas: texture_atlas.0.clone(),
+                                        texture_atlas: character_atlas.0 .0.clone(),
                                         ..Default::default()
                                     },
                                 ));
@@ -183,7 +258,7 @@ fn initialize_enemy_spawns(
 fn initialize_map_collisions(
     mut commands: Commands,
     map: Res<TiledMap>,
-    texture_atlas: Res<Tileset>,
+    texture_atlas: Res<TextureAtlasHandle>,
 ) {
     map.0
         .layers()
@@ -235,9 +310,11 @@ fn initialize_map_collisions(
                                                                     layer_index as f32,
                                                                 ),
                                                             ),
-                                                            sprite: TextureAtlasSprite::new(
-                                                                t.id() as usize
-                                                            ),
+                                                            sprite: TextureAtlasSprite {
+                                                                flip_x: t.flip_h,
+                                                                index: t.id() as usize,
+                                                                ..Default::default()
+                                                            },
                                                             texture_atlas: texture_atlas.0.clone(),
                                                             ..Default::default()
                                                         },
@@ -270,7 +347,11 @@ fn initialize_map_collisions(
                                                     -(tile_pos.1 as f32),
                                                     layer_index as f32,
                                                 )),
-                                                sprite: TextureAtlasSprite::new(t.id() as usize),
+                                                sprite: TextureAtlasSprite {
+                                                    flip_x: t.flip_h,
+                                                    index: t.id() as usize,
+                                                    ..Default::default()
+                                                },
                                                 texture_atlas: texture_atlas.0.clone(),
                                                 ..Default::default()
                                             },
@@ -288,9 +369,18 @@ fn initialize_map_collisions(
         });
 }
 
-fn initialize_player(mut commands: Commands, map: Res<TiledMap>) {
-    let player_size = Vec2::new(10., 25.);
+#[derive(Component)]
+struct Score(usize);
 
+#[derive(Component)]
+struct LastKeyPressed((KeyCode, usize));
+
+fn initialize_player(
+    mut commands: Commands,
+    map: Res<TiledMap>,
+    constants: Res<Constants>,
+    other_atlases: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
+) {
     let player_spawn = map.0.layers().into_iter().find_map(|layer| {
         layer
             .as_object_layer()
@@ -319,27 +409,32 @@ fn initialize_player(mut commands: Commands, map: Res<TiledMap>) {
     }
     let player_spawn = player_spawn.unwrap();
 
+    let (char_atlas, _, char_tileset) = other_atlases
+        .iter()
+        .find(|(_, name, _)| name.0 == constants.character_sheet)
+        .unwrap();
     // @TODO handle error here
     commands.spawn((
         Player,
+        Trick::new(),
+        Score(0),
         RigidBody::Dynamic,
         LockedAxes::ROTATION_LOCKED,
-        Restitution::PERFECTLY_INELASTIC,
-        Collider::cuboid(player_size.x, player_size.y),
+        Restitution::ZERO,
+        Collider::cuboid(
+            char_tileset.0.tile_width as f32,
+            char_tileset.0.tile_height as f32,
+        ),
+        LastKeyPressed((KeyCode::A, 0)),
         CollisionLayers::new([Layers::Player], [Layers::Ground, Layers::Enemy]),
         LinearVelocity::ZERO,
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::hex("ff0000").unwrap(),
-                custom_size: Some(player_size),
-                ..default()
-            },
-            transform: Transform {
-                translation: Vec3::new(player_spawn.0, player_spawn.1, 0.),
-                ..default()
-            },
-            ..default()
+        SpriteSheetBundle {
+            transform: Transform::from_translation(Vec3::new(player_spawn.0, player_spawn.1, 0.)),
+            sprite: TextureAtlasSprite::new(26),
+            texture_atlas: char_atlas.0.clone(),
+            ..Default::default()
         },
+        SpriteAnimationController::new(26, 29, 100.),
     ));
     commands.spawn((
         RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
@@ -376,57 +471,59 @@ fn update_velocity_with_input(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut time_since_last_jump: ResMut<LastJumpTime>,
-    mut player_query: Query<(&mut LinearVelocity, &Transform, &Sprite), With<Player>>,
+    constants: Res<Constants>,
+    mut player_query: Query<
+        (&mut LinearVelocity, &Transform, &Collider, &LastKeyPressed),
+        With<Player>,
+    >,
     mut object_below_query: Query<(&mut RayCaster, &RayHits), With<GroundedCheck>>,
 ) {
-    player_query
-        .iter_mut()
-        .next()
-        .and_then(|(mut velocity, transform, sprite)| {
+    player_query.iter_mut().next().and_then(
+        |(mut velocity, transform, collider, last_key_pressed)| {
             let distance_to_closest_ground =
                 object_below_query
                     .iter_mut()
                     .next()
                     .and_then(|(ray, hits)| {
                         hits.iter_sorted().next().map(|hit| {
-                            (transform.translation.y - sprite.custom_size.unwrap().y / 2.)
+                            (transform.translation.y
+                                - collider.shape().as_cuboid().unwrap().half_extents[1])
                                 - (ray.origin + ray.direction * hit.time_of_impact).y
                         })
                     });
-            if keyboard_input.pressed(KeyCode::A) {
-                velocity.x -= PLAYER_SPEED * time.delta_seconds();
-                if MAX_PLAYER_SPEED < velocity.x.abs() {
-                    velocity.x = -MAX_PLAYER_SPEED;
-                }
-            }
-            if keyboard_input.pressed(KeyCode::D) {
-                velocity.x += PLAYER_SPEED * time.delta_seconds();
-                if MAX_PLAYER_SPEED < velocity.x.abs() {
-                    velocity.x = MAX_PLAYER_SPEED;
-                }
-            }
             if let Some(distance_to_ground) = distance_to_closest_ground {
-                if distance_to_ground <= GROUNDED_THRESHOLD
-                    && velocity.x.abs() > 1.
-                    && !keyboard_input.pressed(KeyCode::A)
-                    && !keyboard_input.pressed(KeyCode::D)
-                {
-                    velocity.x *= GROUNDED_DECAY * time.delta_seconds();
+                if distance_to_ground < constants.grounded_threshold {
+                    if keyboard_input.pressed(KeyCode::A) {
+                        velocity.x -= constants.player_speed * time.delta_seconds();
+                        if constants.max_player_speed < velocity.x.abs() {
+                            velocity.x = -constants.max_player_speed;
+                        }
+                    }
+                    if keyboard_input.pressed(KeyCode::D) {
+                        velocity.x += constants.player_speed * time.delta_seconds();
+                        if constants.max_player_speed < velocity.x.abs() {
+                            velocity.x = constants.max_player_speed;
+                        }
+                    }
                 }
                 if keyboard_input.pressed(KeyCode::Back) {
-                    if distance_to_ground <= GROUNDED_THRESHOLD {
+                    if distance_to_ground <= constants.grounded_threshold {
                         time_since_last_jump.0.reset();
                     }
                     if !time_since_last_jump.0.finished() && velocity.y >= 0. {
                         time_since_last_jump.0.tick(time.delta());
-                        let force =
-                            JUMP_FORCE * time_since_last_jump.0.percent_left().powf(CURVE_POW);
+                        let force = constants.jump_force
+                            * time_since_last_jump
+                                .0
+                                .percent_left()
+                                .powf(constants.curve_pow);
                         velocity.y += force * time.delta_seconds();
                     }
                 }
             }
             Some(())
-        });
+        },
+    );
 }
 
 fn read_map(file_path: String) -> OldMap {
@@ -445,27 +542,213 @@ struct DeleteMe;
 
 fn if_enemy_directly_below_player_and_falling_kill_enemy(
     mut commands: Commands,
+    constants: Res<Constants>,
     object_below_query: Query<(&RayCaster, &RayHits), With<SquishCheck>>,
-    player_query: Query<(&Transform, &Sprite), With<Player>>,
+    mut player_query: Query<(&Transform, &mut LinearVelocity, &Collider), With<Player>>,
 ) {
-    let (player_transform, player_sprite) = player_query.iter().next().unwrap();
+    let (player_transform, mut player_lin_vel, player_collider) =
+        player_query.iter_mut().next().unwrap();
     object_below_query.iter().next().and_then(|(ray, hits)| {
         hits.iter_sorted()
             .next()
             .map(|hit| (hit.entity, ray.origin + ray.direction * hit.time_of_impact))
             .and_then(|(entity, point_hit)| {
-                let player_y =
-                    player_transform.translation.y - player_sprite.custom_size.unwrap().y / 2.;
+                let player_y = player_transform.translation.y
+                    - player_collider.shape().as_cuboid().unwrap().half_extents[1];
                 let difference_between_y = player_y - point_hit.y;
                 if difference_between_y < 1. {
                     commands.get_entity(entity).map(|mut entity| {
                         entity.insert(DeleteMe);
+                        player_lin_vel.y += constants.squish_bounce_force;
                     });
                 }
                 Some(())
             });
         Some(())
     });
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum Direction {
+    Up,
+    Left,
+    Down,
+    Right,
+}
+
+#[derive(Component, Resource)]
+struct Trick {
+    last_trick_definition: Option<TrickDefinition>,
+    last_trick_over: Timer,
+    keys: Vec<KeyCode>,
+}
+impl Trick {
+    pub fn new() -> Self {
+        Self {
+            keys: vec![],
+            last_trick_definition: None,
+            last_trick_over: Timer::from_seconds(0.5, TimerMode::Once),
+        }
+    }
+    pub fn add_key(&mut self, key: KeyCode) {
+        self.keys.push(key);
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct TrickDefinition {
+    name: String,
+    points: usize,
+    takes_ms: usize,
+}
+
+#[derive(Resource, Serialize, Deserialize, Debug)]
+struct TrickList(Vec<(Vec<KeyCode>, TrickDefinition)>);
+
+impl TrickList {
+    pub fn find_trick(&mut self, keys: &Vec<KeyCode>) -> Option<&TrickDefinition> {
+        self.0.iter().find_map(|(trick_keys, trick_definition)| {
+            if trick_keys.len() != keys.len() {
+                return None;
+            }
+            for i in 0..trick_keys.len() {
+                if trick_keys[i] != keys[i] {
+                    return None;
+                }
+            }
+            Some(trick_definition)
+        })
+    }
+}
+
+fn initialize_trick_list(mut commands: Commands) {
+    let raw = std::fs::read_to_string("./assets/trick_list.json").unwrap();
+    let mut trick_list = serde_json::from_str::<TrickList>(&raw).unwrap();
+    // sort the trick list by most keys first
+    trick_list
+        .0
+        .sort_by(|(keys_a, _), (keys_b, _)| keys_b.len().cmp(&keys_a.len()));
+    commands.insert_resource(trick_list);
+}
+
+fn trick_manager(
+    time: Res<Time>,
+    constants: Res<Constants>,
+    mut object_below_query: Query<(&RayCaster, &RayHits), With<GroundedCheck>>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut trick_list: ResMut<TrickList>,
+    mut player_query: Query<
+        (
+            &mut LinearVelocity,
+            &mut Trick,
+            &mut Score,
+            &mut LastKeyPressed,
+            &Transform,
+            &Collider,
+        ),
+        With<Player>,
+    >,
+) {
+    player_query.iter_mut().next().and_then(
+        |(_, mut current_trick, mut score, mut last_key_pressed, transform, collider)| {
+            current_trick.last_trick_over.tick(time.delta());
+
+            let current_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            if current_ms - (last_key_pressed.0 .1 as u128) > constants.trick_time as u128 {
+                current_trick.keys.clear();
+            }
+            let hit_point = object_below_query
+                .iter_mut()
+                .next()
+                .and_then(|(ray, hits)| {
+                    hits.iter_sorted()
+                        .next()
+                        .map(|hit| (ray.origin + ray.direction * hit.time_of_impact).y)
+                })
+                .unwrap_or(99999.);
+            let distance_to_ground = transform.translation.y
+                - hit_point
+                - collider.shape().as_cuboid().unwrap().half_extents[1];
+            if distance_to_ground < constants.grounded_threshold
+                && !current_trick.last_trick_over.finished()
+                && current_trick.last_trick_definition.is_some()
+            {
+                println!("Failed trick");
+                current_trick.keys.clear();
+                current_trick.last_trick_definition = None;
+                return Some(());
+            }
+            if current_trick.last_trick_over.just_finished()
+                && current_trick.last_trick_definition.is_some()
+            {
+                score.0 += current_trick.last_trick_definition.as_ref().unwrap().points;
+                println!(
+                    "Score: {}, Landed: {:?}",
+                    score.0 * 10,
+                    current_trick.last_trick_definition.as_ref().unwrap().name
+                );
+                current_trick.keys.clear();
+                return Some(());
+            }
+
+            let mut key: Option<KeyCode> = None;
+            if keyboard_input.just_pressed(KeyCode::W) {
+                key = Some(KeyCode::W);
+            }
+            if keyboard_input.just_pressed(KeyCode::A) {
+                key = Some(KeyCode::A);
+            }
+            if keyboard_input.just_pressed(KeyCode::S) {
+                key = Some(KeyCode::S);
+            }
+            if keyboard_input.just_pressed(KeyCode::D) {
+                key = Some(KeyCode::D);
+            }
+            if let None = key {
+                return Some(());
+            }
+
+            let current_key = key.unwrap();
+            last_key_pressed.0 = (current_key, current_ms as usize);
+            match key.unwrap() {
+                KeyCode::A | KeyCode::W | KeyCode::S | KeyCode::D => {
+                    if !current_trick.last_trick_over.finished() {
+                        if current_trick.keys.len() > 1 {
+                            current_trick.keys.clear();
+                            current_trick.last_trick_over.reset();
+                        };
+                        return Some(());
+                    }
+                    current_trick.add_key(current_key);
+                    trick_list
+                        .find_trick(&current_trick.keys)
+                        .and_then(|trick| {
+                            current_trick.keys.clear();
+                            current_trick
+                                .last_trick_over
+                                .set_duration(Duration::from_millis(trick.takes_ms as u64));
+                            current_trick.last_trick_over.reset();
+                            current_trick.last_trick_definition = Some(trick.clone());
+                            println!("executing: {:?}", trick.name);
+                            Some(())
+                        })
+                        .or_else(|| {
+                            if current_trick.keys.len() > 1 {
+                                current_trick.keys.clear();
+                                current_trick.last_trick_over.reset();
+                            };
+                            Some(())
+                        });
+                }
+                _ => {}
+            }
+
+            Some(())
+        },
+    );
 }
 
 fn delete_me(mut commands: Commands, query: Query<Entity, With<DeleteMe>>) {
@@ -484,30 +767,71 @@ fn update_bottom_of_player_raycasts(
     });
 }
 
-fn startup(mut commands: Commands) {
+fn startup(mut commands: Commands, constants: Res<Constants>) {
     commands.spawn(Camera2dBundle { ..default() });
     commands.insert_resource(LastJumpTime(Timer::from_seconds(
-        INITIAL_JUMP_TIME,
+        constants.initial_jump_time,
         TimerMode::Once,
     )));
-    commands.insert_resource(Gravity(Vec2::NEG_Y * GRAVITY));
+    commands.insert_resource(Gravity(Vec2::NEG_Y * constants.gravity));
 }
 
 fn adjust_camera(mut camera_query: Query<&mut OrthographicProjection, With<Camera2d>>) {
     camera_query.iter_mut().next().and_then(|mut projection| {
-        projection.scale /= 2.;
+        projection.scale /= 2.5;
         Some(())
     });
+}
+
+impl SpriteAnimationController {
+    pub fn new(
+        start: usize,
+        end: usize,
+        ms_per_frame: f32,
+    ) -> (LoopingIncrementer, AnimationTimer) {
+        (
+            LoopingIncrementer {
+                start,
+                end,
+                current: start,
+            },
+            AnimationTimer(Timer::from_seconds(
+                ms_per_frame / 1000.,
+                TimerMode::Repeating,
+            )),
+        )
+    }
+}
+
+fn update_animated_sprites(
+    time: Res<Time>,
+    mut query: Query<(
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+        &mut LoopingIncrementer,
+    )>,
+) {
+    query
+        .iter_mut()
+        .for_each(|(mut timer, mut sprite, mut incrementer)| {
+            timer.0.tick(time.delta());
+            if timer.0.finished() {
+                sprite.index = incrementer.increment();
+            }
+        });
 }
 
 pub struct StartupPlugin;
 impl Plugin for StartupPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((DefaultPlugins, PhysicsPlugins::new(PreUpdate)))
-            .add_systems(Startup, startup)
             .add_systems(
                 Startup,
                 (
+                    initialize_trick_list,
+                    initialize_constants,
+                    apply_deferred,
+                    startup,
                     map_spawner,
                     apply_deferred,
                     initialize_tiled_map,
@@ -525,9 +849,11 @@ impl Plugin for StartupPlugin {
                     update_bottom_of_player_raycasts,
                     if_enemy_directly_below_player_and_falling_kill_enemy,
                     update_velocity_with_input,
+                    trick_manager,
                     follow_player,
                 ),
             )
+            .add_systems(Update, update_animated_sprites)
             .add_systems(PostUpdate, (delete_me, apply_deferred).chain());
     }
 }
