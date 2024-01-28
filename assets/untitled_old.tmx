@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-up" width="101" height="61" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="8">
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-up" width="101" height="61" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="9">
  <tileset firstgid="1" source="Tileset.tsx"/>
  <tileset firstgid="217" source="sheet.tsx"/>
  <layer id="7" name="bg" width="101" height="61">
@@ -156,6 +156,11 @@
   <object id="7" name="enemy_spawn" x="584" y="562.5">
    <properties>
     <property name="spawn" value="enemy_1"/>
+   </properties>
+  </object>
+  <object id="8" x="851.962" y="583.929" width="157.948" height="112">
+   <properties>
+    <property name="checkpoint" value="end"/>
    </properties>
   </object>
  </objectgroup>

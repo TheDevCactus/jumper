@@ -40,9 +40,9 @@
     },
     "frame.defaultDuration": 100,
     "last.imagePath": "/home/morgan/jumper/assets/tilesets",
-    "last.worldFilePath": "/home/morgan/jumper/assets",
+    "last.worldFilePath": "/home/morganbrown/jumper/assets",
     "loadedWorlds": [
-        "/home/morgan/jumper/assets/world.world"
+        "/home/morganbrown/jumper/assets/world.world"
     ],
     "map.fixedSize": false,
     "map.lastUsedFormat": "tmx",

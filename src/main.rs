@@ -69,6 +69,7 @@ struct Player;
 
 #[derive(PhysicsLayer)]
 enum Layers {
+    Checkpoint,
     Player,
     Enemy,
     Ground,
@@ -188,6 +189,7 @@ enum Checkpoint {
     End,
 }
 
+
 #[derive(Component)]
 struct CheckpointResource(Checkpoint);
 
@@ -197,14 +199,47 @@ struct MapResource(OldMap);
 #[derive(Resource)]
 struct LastJumpTime(Timer);
 
+fn hit_checkmark(
+    constants: Res<Constants>,
+    player_query: Query<(&Transform, &Collider), With<Player>>,
+    checkmark_query: Query<(&RayCaster, &RayHits), With<CheckpointCheck>>,    
+) {
+    checkmark_query.iter().next().and_then(|(ray, hits)| {
+        hits.iter_sorted().next().map(|hit| {
+            let hit_point = ray.origin + ray.direction * hit.time_of_impact;
+            let distance_to_hit =  player_query.iter().next().map(|(transform, collider)| {
+                let player_y = transform.translation.y
+                    - collider.shape().as_cuboid().unwrap().half_extents[1];
+                player_y - hit_point.y
+            }).unwrap_or(99999.);
+            if constants.grounded_threshold < distance_to_hit {
+                return;
+            }
+            println!("hit checkmark");
+        });
+        Some(())
+    });
+}
+
 fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
     map.0.layers().into_iter().for_each(|layer| {
         layer.as_object_layer().and_then(|object_layer| {
             object_layer.objects().into_iter().for_each(|object| {
+                println!("{:?}", object.properties);
+                let mut object_dimensions = (0., 0.);
+                match object.shape {
+                    tiled::ObjectShape::Rect { width, height } => {
+                        object_dimensions = (width, height);
+                    }
+                    _ => {
+                        return;
+                    }
+                }
+                let object_dimensions = 
                 object.properties.get("checkpoint").and_then(
                     |checkpoint_type| match checkpoint_type {
                         PropertyValue::StringValue(checkpoint_type) => {
-                            if checkpoint_type == "start" {
+                            if checkpoint_type == "end" {
                                 commands.spawn((
                                     ObjectComponent(Object {
                                         position: Point {
@@ -212,12 +247,27 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                                             y: -object.y,
                                         },
                                         size: Size {
-                                            width: 100.,
-                                            height: 100.,
+                                            width: object_dimensions.0,
+                                            height: object_dimensions.1,
                                         },
                                         color: "#ff0000".to_string(),
                                     }),
+                                    SpriteBundle {
+                                        transform: Transform::from_translation(Vec3::new(
+                                            object.x, -object.y, 0.,
+                                        )),
+                                        sprite: Sprite {
+                                            color: Color::hex( "FF0000").unwrap(),
+                                            custom_size: Some(Vec2::new(object_dimensions.0, object_dimensions.1)),
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    },
                                     Collider::cuboid(100., 100.),
+                                    CollisionLayers::new(
+                                        [Layers::Checkpoint],
+                                        [Layers::Player],
+                                    ),
                                     CheckpointResource(Checkpoint::End),
                                 ));
                                 println!("spawned start");
@@ -332,7 +382,7 @@ fn initialize_map_collisions(
                                                         RigidBody::Static,
                                                         CollisionLayers::new(
                                                             [Layers::Ground],
-                                                            [Layers::Player, Layers::Enemy],
+                                                            [Layers::Player, Layers::Enemy, Layers::Checkpoint],
                                                         ),
                                                         ObjectComponent(Object {
                                                             position: Point {
@@ -416,6 +466,9 @@ fn initialize_map_collisions(
 struct Score(usize);
 
 #[derive(Component)]
+struct CheckpointCheck;
+
+#[derive(Component)]
 struct LastKeyPressed((KeyCode, usize));
 
 fn initialize_player(
@@ -483,6 +536,13 @@ fn initialize_player(
         RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
             .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Ground])),
         GroundedCheck,
+        BottomOfPlayerRayCast,
+    ));
+
+    commands.spawn((
+        RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
+            .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Checkpoint])),
+        CheckpointCheck,
         BottomOfPlayerRayCast,
     ));
 
@@ -894,6 +954,7 @@ impl Plugin for StartupPlugin {
                     if_enemy_directly_below_player_and_falling_kill_enemy,
                     update_velocity_with_input,
                     trick_manager,
+                    hit_checkmark,
                     follow_player,
                 ),
             )
