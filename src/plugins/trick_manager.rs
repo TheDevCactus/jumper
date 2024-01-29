@@ -58,7 +58,7 @@ fn trick_manager(
         With<Player>,
     >,
 ) {
-    player_query.iter_mut().next().and_then(
+    player_query.iter_mut().next().map(
         |(_, mut current_trick, mut score, mut last_key_pressed, transform, collider)| {
             current_trick.last_trick_over.tick(time.delta());
 
@@ -88,7 +88,7 @@ fn trick_manager(
                 println!("Failed trick");
                 current_trick.keys.clear();
                 current_trick.last_trick_definition = None;
-                return Some(());
+                return ();
             }
             if current_trick.last_trick_over.just_finished()
                 && current_trick.last_trick_definition.is_some()
@@ -100,7 +100,7 @@ fn trick_manager(
                     current_trick.last_trick_definition.as_ref().unwrap().name
                 );
                 current_trick.keys.clear();
-                return Some(());
+                return ();
             }
 
             let mut key: Option<KeyCode> = None;
@@ -116,8 +116,8 @@ fn trick_manager(
             if keyboard_input.just_pressed(KeyCode::D) {
                 key = Some(KeyCode::D);
             }
-            if let None = key {
-                return Some(());
+            if key.is_none() {
+                return ();
             }
 
             let current_key = key.unwrap();
@@ -129,13 +129,13 @@ fn trick_manager(
                             current_trick.keys.clear();
                             current_trick.last_trick_over.reset();
                         };
-                        return Some(());
+                        return ();
                     }
                     current_trick.add_key(current_key);
                     trick_list
                         .0
                         .find_trick(&current_trick.keys)
-                        .and_then(|trick| {
+                        .map(|trick| {
                             current_trick.keys.clear();
                             current_trick
                                 .last_trick_over
@@ -143,7 +143,7 @@ fn trick_manager(
                             current_trick.last_trick_over.reset();
                             current_trick.last_trick_definition = Some(trick.clone());
                             println!("executing: {:?}", trick.name);
-                            Some(())
+                            ()
                         })
                         .or_else(|| {
                             if current_trick.keys.len() > 1 {
@@ -156,7 +156,7 @@ fn trick_manager(
                 _ => {}
             }
 
-            Some(())
+            ()
         },
     );
 }

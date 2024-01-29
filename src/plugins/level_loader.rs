@@ -1,11 +1,9 @@
 use bevy::{
-    app::{App, Plugin, PostStartup, PreStartup, Startup},
+    app::{App, Plugin, PostStartup, Startup},
     asset::AssetServer,
     ecs::{
-        schedule::{apply_deferred, SystemSet},
         system::{Commands, Query, Res},
     },
-    input::keyboard::KeyCode,
     log::warn,
     math::{Vec2, Vec3},
     render::color::Color,
@@ -13,18 +11,16 @@ use bevy::{
     transform::components::Transform,
 };
 use bevy_xpbd_2d::{
-    components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, Restitution, RigidBody},
-    plugins::spatial_query::{RayCaster, SpatialQueryFilter},
+    components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, RigidBody},
 };
 use tiled::{Loader, PropertyValue};
 
 use crate::{
-    models::Constants, BottomOfPlayerRayCast, Checkpoint, CheckpointCheck, CheckpointResource,
-    Collision, Enemy, GroundedCheck, LastKeyPressed, Layers, Object, ObjectComponent, Platform,
-    Player, Point, Score, Size, SquishCheck, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
+    models::Constants, Checkpoint, CheckpointResource,
+    Collision, Enemy, Layers, Object, ObjectComponent, Platform, Point, Size, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
 };
 
-use super::{animation_manager::SpriteAnimationController, trick_manager::Trick};
+
 
 pub fn initialize_tiled_map(
     mut commands: Commands,
@@ -81,9 +77,9 @@ pub fn initialize_tiled_map(
 }
 
 fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
-    map.0.layers().into_iter().for_each(|layer| {
-        layer.as_object_layer().and_then(|object_layer| {
-            object_layer.objects().into_iter().for_each(|object| {
+    map.0.layers().for_each(|layer| {
+        layer.as_object_layer().map(|object_layer| {
+            object_layer.objects().for_each(|object| {
                 println!("{:?}", object.properties);
                 let mut object_dimensions = (0., 0.);
                 match object.shape {
@@ -94,7 +90,7 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                         return;
                     }
                 }
-                let object_dimensions =
+                let _object_dimensions =
                     object
                         .properties
                         .get("checkpoint")
@@ -141,7 +137,7 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                             _ => None,
                         });
             });
-            Some(())
+            ()
         });
     })
 }
@@ -152,9 +148,9 @@ fn initialize_enemy_spawns(
     constants: Res<Constants>,
     texture_atlas: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
 ) {
-    map.0.layers().into_iter().for_each(|layer| {
-        layer.as_object_layer().and_then(|object_layer| {
-            object_layer.objects().into_iter().for_each(|object| {
+    map.0.layers().for_each(|layer| {
+        layer.as_object_layer().map(|object_layer| {
+            object_layer.objects().for_each(|object| {
                 object
                     .properties
                     .get("spawn")
@@ -206,7 +202,7 @@ fn initialize_enemy_spawns(
                         _ => None,
                     });
             });
-            Some(())
+            ()
         });
     });
 }
@@ -218,16 +214,15 @@ fn initialize_map_collisions(
 ) {
     map.0
         .layers()
-        .into_iter()
         .enumerate()
         .for_each(|(layer_index, layer)| {
-            layer.as_tile_layer().and_then(|tile_layer| {
+            layer.as_tile_layer().map(|tile_layer| {
                 let layer_width = tile_layer.width().unwrap();
                 let layer_height = tile_layer.height().unwrap();
                 (0..layer_height).for_each(|row| {
                     (0..layer_width).for_each(|col| {
-                        tile_layer.get_tile(col as i32, row as i32).and_then(|t| {
-                            t.get_tile().and_then(|tile| {
+                        tile_layer.get_tile(col as i32, row as i32).map(|t| {
+                            t.get_tile().map(|tile| {
                                 match tile.collision.as_ref() {
                                     Some(collision) => {
                                         collision.object_data().iter().for_each(|object| {
@@ -257,8 +252,8 @@ fn initialize_map_collisions(
                                                                 y: -(tile_pos.1 as f32),
                                                             },
                                                             size: Size {
-                                                                width: width,
-                                                                height: height,
+                                                                width,
+                                                                height,
                                                             },
                                                             color: "#ff0000".to_string(),
                                                         }),
@@ -318,13 +313,13 @@ fn initialize_map_collisions(
                                         ));
                                     }
                                 }
-                                Some(())
+                                ()
                             });
-                            Some(())
+                            ()
                         });
                     });
                 });
-                Some(())
+                ()
             });
         });
 }

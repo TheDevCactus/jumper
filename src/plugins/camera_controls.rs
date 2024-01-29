@@ -19,9 +19,9 @@ fn insert_camera(mut commands: Commands) {
 
 // initializes the cameras settings
 fn adjust_camera(mut camera_query: Query<&mut OrthographicProjection, With<Camera2d>>) {
-    camera_query.iter_mut().next().and_then(|mut projection| {
+    camera_query.iter_mut().next().map(|mut projection| {
         projection.scale /= 2.5;
-        Some(())
+        ()
     });
 }
 
@@ -34,10 +34,10 @@ fn follow_player(
         camera_query
             .iter_mut()
             .next()
-            .and_then(|mut camera_transform| {
+            .map(|mut camera_transform| {
                 camera_transform.translation.x = player_transform.translation.x;
                 camera_transform.translation.y = player_transform.translation.y;
-                Some(())
+                ()
             })
     });
 }

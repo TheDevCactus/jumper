@@ -32,11 +32,11 @@ fn initialize_player(
     constants: Res<Constants>,
     other_atlases: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
 ) {
-    let player_spawn = map.0.layers().into_iter().find_map(|layer| {
+    let player_spawn = map.0.layers().find_map(|layer| {
         layer
             .as_object_layer()
             .and_then(|object_layer| {
-                object_layer.objects().into_iter().find(|object| {
+                object_layer.objects().find(|object| {
                     object
                         .properties
                         .get("spawn")
@@ -55,7 +55,7 @@ fn initialize_player(
             })
             .map(|object| (object.x, -object.y))
     });
-    if let None = player_spawn {
+    if player_spawn.is_none() {
         panic!("No player spawn found");
     }
     let player_spawn = player_spawn.unwrap();
@@ -127,11 +127,11 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
 ) {
     let (player_transform, mut player_lin_vel, player_collider) =
         player_query.iter_mut().next().unwrap();
-    object_below_query.iter().next().and_then(|(ray, hits)| {
+    object_below_query.iter().next().map(|(ray, hits)| {
         hits.iter_sorted()
             .next()
             .map(|hit| (hit.entity, ray.origin + ray.direction * hit.time_of_impact))
-            .and_then(|(entity, point_hit)| {
+            .map(|(entity, point_hit)| {
                 let player_y = player_transform.translation.y
                     - player_collider.shape().as_cuboid().unwrap().half_extents[1];
                 let difference_between_y = player_y - point_hit.y;
@@ -141,9 +141,9 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
                         player_lin_vel.y += constants.squish_bounce_force;
                     });
                 }
-                Some(())
+                ()
             });
-        Some(())
+        ()
     });
 }
 
@@ -158,7 +158,7 @@ fn update_velocity_with_input(
     player_query
         .iter_mut()
         .next()
-        .and_then(|(mut velocity, transform, collider)| {
+        .map(|(mut velocity, transform, collider)| {
             let distance_to_closest_ground =
                 object_below_query
                     .iter_mut()
@@ -200,7 +200,7 @@ fn update_velocity_with_input(
                     }
                 }
             }
-            Some(())
+            ()
         });
 }
 
@@ -209,7 +209,7 @@ fn hit_checkmark(
     player_query: Query<(&Transform, &Collider), With<Player>>,
     checkmark_query: Query<(&RayCaster, &RayHits), With<CheckpointCheck>>,
 ) {
-    checkmark_query.iter().next().and_then(|(ray, hits)| {
+    checkmark_query.iter().next().map(|(ray, hits)| {
         hits.iter_sorted().next().map(|hit| {
             let hit_point = ray.origin + ray.direction * hit.time_of_impact;
             let distance_to_hit = player_query
@@ -226,7 +226,7 @@ fn hit_checkmark(
             }
             println!("hit checkmark");
         });
-        Some(())
+        ()
     });
 }
 
