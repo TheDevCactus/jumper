@@ -137,7 +137,7 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                             _ => None,
                         });
             });
-            ()
+            
         });
     })
 }
@@ -202,7 +202,7 @@ fn initialize_enemy_spawns(
                         _ => None,
                     });
             });
-            ()
+            
         });
     });
 }
@@ -313,13 +313,13 @@ fn initialize_map_collisions(
                                         ));
                                     }
                                 }
-                                ()
+                                
                             });
-                            ()
+                            
                         });
                     });
                 });
-                ()
+                
             });
         });
 }

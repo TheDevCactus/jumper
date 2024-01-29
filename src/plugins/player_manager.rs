@@ -141,9 +141,9 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
                         player_lin_vel.y += constants.squish_bounce_force;
                     });
                 }
-                ()
+                
             });
-        ()
+        
     });
 }
 
@@ -200,7 +200,7 @@ fn update_velocity_with_input(
                     }
                 }
             }
-            ()
+            
         });
 }
 
@@ -226,7 +226,7 @@ fn hit_checkmark(
             }
             println!("hit checkmark");
         });
-        ()
+        
     });
 }
 
