@@ -78,8 +78,7 @@ pub fn initialize_tiled_map(
 
 fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
     map.0.layers().for_each(|layer| {
-        layer.as_object_layer().map(|object_layer| {
-            object_layer.objects().for_each(|object| {
+        if let Some(object_layer) = layer.as_object_layer() { object_layer.objects().for_each(|object| {
                 println!("{:?}", object.properties);
                 let mut object_dimensions = (0., 0.);
                 match object.shape {
@@ -136,9 +135,7 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                             }
                             _ => None,
                         });
-            });
-            
-        });
+            }); }
     })
 }
 
@@ -149,8 +146,7 @@ fn initialize_enemy_spawns(
     texture_atlas: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
 ) {
     map.0.layers().for_each(|layer| {
-        layer.as_object_layer().map(|object_layer| {
-            object_layer.objects().for_each(|object| {
+        if let Some(object_layer) = layer.as_object_layer() { object_layer.objects().for_each(|object| {
                 object
                     .properties
                     .get("spawn")
@@ -201,9 +197,7 @@ fn initialize_enemy_spawns(
                         }
                         _ => None,
                     });
-            });
-            
-        });
+            }); }
     });
 }
 
@@ -221,8 +215,7 @@ fn initialize_map_collisions(
                 let layer_height = tile_layer.height().unwrap();
                 (0..layer_height).for_each(|row| {
                     (0..layer_width).for_each(|col| {
-                        tile_layer.get_tile(col as i32, row as i32).map(|t| {
-                            t.get_tile().map(|tile| {
+                        if let Some(t) = tile_layer.get_tile(col as i32, row as i32) { t.get_tile().map(|tile| {
                                 match tile.collision.as_ref() {
                                     Some(collision) => {
                                         collision.object_data().iter().for_each(|object| {
@@ -314,9 +307,7 @@ fn initialize_map_collisions(
                                     }
                                 }
                                 
-                            });
-                            
-                        });
+                            }); }
                     });
                 });
                 

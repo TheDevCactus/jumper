@@ -127,8 +127,7 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
 ) {
     let (player_transform, mut player_lin_vel, player_collider) =
         player_query.iter_mut().next().unwrap();
-    object_below_query.iter().next().map(|(ray, hits)| {
-        hits.iter_sorted()
+    if let Some((ray, hits)) = object_below_query.iter().next() { hits.iter_sorted()
             .next()
             .map(|hit| (hit.entity, ray.origin + ray.direction * hit.time_of_impact))
             .map(|(entity, point_hit)| {
@@ -142,9 +141,7 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
                     });
                 }
                 
-            });
-        
-    });
+            }); }
 }
 
 fn update_velocity_with_input(
@@ -209,8 +206,7 @@ fn hit_checkmark(
     player_query: Query<(&Transform, &Collider), With<Player>>,
     checkmark_query: Query<(&RayCaster, &RayHits), With<CheckpointCheck>>,
 ) {
-    checkmark_query.iter().next().map(|(ray, hits)| {
-        hits.iter_sorted().next().map(|hit| {
+    if let Some((ray, hits)) = checkmark_query.iter().next() { hits.iter_sorted().next().map(|hit| {
             let hit_point = ray.origin + ray.direction * hit.time_of_impact;
             let distance_to_hit = player_query
                 .iter()
@@ -225,9 +221,7 @@ fn hit_checkmark(
                 return;
             }
             println!("hit checkmark");
-        });
-        
-    });
+        }); }
 }
 
 pub struct PlayerManager;
