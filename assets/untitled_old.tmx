@@ -133,7 +133,7 @@
 </data>
  </layer>
  <objectgroup id="4" name="Object Layer 1">
-  <object id="3" name="player_spawn" x="714.938" y="513.313">
+  <object id="3" name="player_spawn" x="201.846" y="762.201">
    <properties>
     <property name="spawn" value="player"/>
    </properties>
@@ -158,7 +158,7 @@
     <property name="spawn" value="enemy_1"/>
    </properties>
   </object>
-  <object id="8" x="851.962" y="583.929" width="157.948" height="112">
+  <object id="8" x="826.116" y="566.698" width="157.948" height="112">
    <properties>
     <property name="checkpoint" value="end"/>
    </properties>

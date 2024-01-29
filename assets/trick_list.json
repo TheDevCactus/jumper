@@ -1,34 +1,36 @@
-[
-  [
-    ["W", "A", "W"],
-    {
-      "points": 10,
-      "takes_ms": 100,
-      "name": "wow flip"
-    }
-  ],
-  [
-    ["W", "W"],
-    {
-      "points": 100,
-      "takes_ms": 100,
-      "name": "up flip"
-    }
-  ],
-  [
-    ["A", "W"],
-    {
-      "points": 200,
-      "takes_ms": 200,
-      "name": "back up flip"
-    }
-  ],
-  [
-    ["D", "D"],
-    {
-      "points": 100,
-      "takes_ms": 100,
-      "name": "back flip"
-    }
+{
+  "tricks": [
+    [
+      ["W", "A", "W"],
+      {
+        "points": 10,
+        "takes_ms": 100,
+        "name": "wow flip"
+      }
+    ],
+    [
+      ["W", "W"],
+      {
+        "points": 100,
+        "takes_ms": 100,
+        "name": "up flip"
+      }
+    ],
+    [
+      ["A", "W"],
+      {
+        "points": 200,
+        "takes_ms": 200,
+        "name": "back up flip"
+      }
+    ],
+    [
+      ["D", "D"],
+      {
+        "points": 100,
+        "takes_ms": 100,
+        "name": "back flip"
+      }
+    ]
   ]
-]
+}

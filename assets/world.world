@@ -8,6 +8,6 @@
             "y": 0
         }
     ],
-    "onlyShowAdjacentMaps": false,
+    "onlyShowAdjacentMaps": true,
     "type": "world"
 }
