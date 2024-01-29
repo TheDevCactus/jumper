@@ -1,26 +1,24 @@
 use bevy::{
     app::{App, Plugin, PostStartup, Startup},
     asset::AssetServer,
-    ecs::{
-        system::{Commands, Query, Res},
-    },
+    ecs::system::{Commands, Query, Res},
     log::warn,
     math::{Vec2, Vec3},
     render::color::Color,
     sprite::{Sprite, SpriteBundle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite},
     transform::components::Transform,
 };
-use bevy_xpbd_2d::{
-    components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, RigidBody},
-};
+use bevy_xpbd_2d::components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, RigidBody};
 use tiled::{Loader, PropertyValue};
 
 use crate::{
-    models::Constants, Checkpoint, CheckpointResource,
-    Collision, Enemy, Layers, Object, ObjectComponent, Platform, Point, Size, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
+    components_resources::{
+        Checkpoint, CheckpointResource, Collision, Enemy, Object, ObjectComponent, Platform, Point,
+        Size, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
+    },
+    models::Constants,
+    plugins::physics::Layers,
 };
-
-
 
 pub fn initialize_tiled_map(
     mut commands: Commands,
@@ -78,7 +76,8 @@ pub fn initialize_tiled_map(
 
 fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
     map.0.layers().for_each(|layer| {
-        if let Some(object_layer) = layer.as_object_layer() { object_layer.objects().for_each(|object| {
+        if let Some(object_layer) = layer.as_object_layer() {
+            object_layer.objects().for_each(|object| {
                 println!("{:?}", object.properties);
                 let mut object_dimensions = (0., 0.);
                 match object.shape {
@@ -135,7 +134,8 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                             }
                             _ => None,
                         });
-            }); }
+            });
+        }
     })
 }
 
@@ -146,7 +146,8 @@ fn initialize_enemy_spawns(
     texture_atlas: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
 ) {
     map.0.layers().for_each(|layer| {
-        if let Some(object_layer) = layer.as_object_layer() { object_layer.objects().for_each(|object| {
+        if let Some(object_layer) = layer.as_object_layer() {
+            object_layer.objects().for_each(|object| {
                 object
                     .properties
                     .get("spawn")
@@ -197,7 +198,8 @@ fn initialize_enemy_spawns(
                         }
                         _ => None,
                     });
-            }); }
+            });
+        }
     });
 }
 
@@ -206,113 +208,102 @@ fn initialize_map_collisions(
     map: Res<TiledMap>,
     texture_atlas: Res<TextureAtlasHandle>,
 ) {
-    map.0
-        .layers()
-        .enumerate()
-        .for_each(|(layer_index, layer)| {
-            layer.as_tile_layer().map(|tile_layer| {
-                let layer_width = tile_layer.width().unwrap();
-                let layer_height = tile_layer.height().unwrap();
-                (0..layer_height).for_each(|row| {
-                    (0..layer_width).for_each(|col| {
-                        if let Some(t) = tile_layer.get_tile(col as i32, row as i32) { t.get_tile().map(|tile| {
-                                match tile.collision.as_ref() {
-                                    Some(collision) => {
-                                        collision.object_data().iter().for_each(|object| {
-                                            match object.shape {
-                                                tiled::ObjectShape::Rect { width, height } => {
-                                                    let tile_pos = (
-                                                        col * map.0.tile_width,
-                                                        row * map.0.tile_height,
-                                                    );
-                                                    commands.spawn((
-                                                        Platform,
-                                                        Collision,
-                                                        Collider::cuboid(width, height),
-                                                        LinearVelocity::ZERO,
-                                                        RigidBody::Static,
-                                                        CollisionLayers::new(
-                                                            [Layers::Ground],
-                                                            [
-                                                                Layers::Player,
-                                                                Layers::Enemy,
-                                                                Layers::Checkpoint,
-                                                            ],
+    map.0.layers().enumerate().for_each(|(layer_index, layer)| {
+        layer.as_tile_layer().map(|tile_layer| {
+            let layer_width = tile_layer.width().unwrap();
+            let layer_height = tile_layer.height().unwrap();
+            (0..layer_height).for_each(|row| {
+                (0..layer_width).for_each(|col| {
+                    if let Some(t) = tile_layer.get_tile(col as i32, row as i32) {
+                        t.get_tile().map(|tile| match tile.collision.as_ref() {
+                            Some(collision) => {
+                                collision.object_data().iter().for_each(|object| {
+                                    match object.shape {
+                                        tiled::ObjectShape::Rect { width, height } => {
+                                            let tile_pos =
+                                                (col * map.0.tile_width, row * map.0.tile_height);
+                                            commands.spawn((
+                                                Platform,
+                                                Collision,
+                                                Collider::cuboid(width, height),
+                                                LinearVelocity::ZERO,
+                                                RigidBody::Static,
+                                                CollisionLayers::new(
+                                                    [Layers::Ground],
+                                                    [
+                                                        Layers::Player,
+                                                        Layers::Enemy,
+                                                        Layers::Checkpoint,
+                                                    ],
+                                                ),
+                                                ObjectComponent(Object {
+                                                    position: Point {
+                                                        x: tile_pos.0 as f32,
+                                                        y: -(tile_pos.1 as f32),
+                                                    },
+                                                    size: Size { width, height },
+                                                    color: "#ff0000".to_string(),
+                                                }),
+                                                SpriteSheetBundle {
+                                                    transform: Transform::from_translation(
+                                                        Vec3::new(
+                                                            tile_pos.0 as f32,
+                                                            -(tile_pos.1 as f32),
+                                                            layer_index as f32,
                                                         ),
-                                                        ObjectComponent(Object {
-                                                            position: Point {
-                                                                x: tile_pos.0 as f32,
-                                                                y: -(tile_pos.1 as f32),
-                                                            },
-                                                            size: Size {
-                                                                width,
-                                                                height,
-                                                            },
-                                                            color: "#ff0000".to_string(),
-                                                        }),
-                                                        SpriteSheetBundle {
-                                                            transform: Transform::from_translation(
-                                                                Vec3::new(
-                                                                    tile_pos.0 as f32,
-                                                                    -(tile_pos.1 as f32),
-                                                                    layer_index as f32,
-                                                                ),
-                                                            ),
-                                                            sprite: TextureAtlasSprite {
-                                                                flip_x: t.flip_h,
-                                                                index: t.id() as usize,
-                                                                ..Default::default()
-                                                            },
-                                                            texture_atlas: texture_atlas.0.clone(),
-                                                            ..Default::default()
-                                                        },
-                                                    ));
-                                                }
-                                                _ => {
-                                                    warn!("Unsupported shape");
-                                                }
-                                            };
-                                        });
-                                    }
-                                    None => {
-                                        let tile_pos =
-                                            (col * map.0.tile_width, row * map.0.tile_height);
-                                        commands.spawn((
-                                            ObjectComponent(Object {
-                                                position: Point {
-                                                    x: tile_pos.0 as f32,
-                                                    y: -(tile_pos.1 as f32),
-                                                },
-                                                size: Size {
-                                                    width: map.0.tile_width as f32,
-                                                    height: map.0.tile_height as f32,
-                                                },
-                                                color: "#ff0000".to_string(),
-                                            }),
-                                            SpriteSheetBundle {
-                                                transform: Transform::from_translation(Vec3::new(
-                                                    tile_pos.0 as f32,
-                                                    -(tile_pos.1 as f32),
-                                                    layer_index as f32,
-                                                )),
-                                                sprite: TextureAtlasSprite {
-                                                    flip_x: t.flip_h,
-                                                    index: t.id() as usize,
+                                                    ),
+                                                    sprite: TextureAtlasSprite {
+                                                        flip_x: t.flip_h,
+                                                        index: t.id() as usize,
+                                                        ..Default::default()
+                                                    },
+                                                    texture_atlas: texture_atlas.0.clone(),
                                                     ..Default::default()
                                                 },
-                                                texture_atlas: texture_atlas.0.clone(),
-                                                ..Default::default()
-                                            },
-                                        ));
-                                    }
-                                }
-                                
-                            }); }
-                    });
+                                            ));
+                                        }
+                                        _ => {
+                                            warn!("Unsupported shape");
+                                        }
+                                    };
+                                });
+                            }
+                            None => {
+                                let tile_pos = (col * map.0.tile_width, row * map.0.tile_height);
+                                commands.spawn((
+                                    ObjectComponent(Object {
+                                        position: Point {
+                                            x: tile_pos.0 as f32,
+                                            y: -(tile_pos.1 as f32),
+                                        },
+                                        size: Size {
+                                            width: map.0.tile_width as f32,
+                                            height: map.0.tile_height as f32,
+                                        },
+                                        color: "#ff0000".to_string(),
+                                    }),
+                                    SpriteSheetBundle {
+                                        transform: Transform::from_translation(Vec3::new(
+                                            tile_pos.0 as f32,
+                                            -(tile_pos.1 as f32),
+                                            layer_index as f32,
+                                        )),
+                                        sprite: TextureAtlasSprite {
+                                            flip_x: t.flip_h,
+                                            index: t.id() as usize,
+                                            ..Default::default()
+                                        },
+                                        texture_atlas: texture_atlas.0.clone(),
+                                        ..Default::default()
+                                    },
+                                ));
+                            }
+                        });
+                    }
                 });
-                
             });
         });
+    });
 }
 
 pub struct LevelLoader;

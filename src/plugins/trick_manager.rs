@@ -17,8 +17,8 @@ use bevy_xpbd_2d::{
 };
 
 use crate::{
+    components_resources::{GroundedCheck, LastKeyPressed, Player, Score},
     models::{Constants, TrickDefinition, TrickListResource},
-    GroundedCheck, LastKeyPressed, Player, Score,
 };
 
 #[derive(Component, Resource)]
@@ -88,7 +88,7 @@ fn trick_manager(
                 println!("Failed trick");
                 current_trick.keys.clear();
                 current_trick.last_trick_definition = None;
-                return ;
+                return;
             }
             if current_trick.last_trick_over.just_finished()
                 && current_trick.last_trick_definition.is_some()
@@ -100,7 +100,7 @@ fn trick_manager(
                     current_trick.last_trick_definition.as_ref().unwrap().name
                 );
                 current_trick.keys.clear();
-                return ;
+                return;
             }
 
             let mut key: Option<KeyCode> = None;
@@ -117,7 +117,7 @@ fn trick_manager(
                 key = Some(KeyCode::D);
             }
             if key.is_none() {
-                return ;
+                return;
             }
 
             let current_key = key.unwrap();
@@ -129,7 +129,7 @@ fn trick_manager(
                             current_trick.keys.clear();
                             current_trick.last_trick_over.reset();
                         };
-                        return ;
+                        return;
                     }
                     current_trick.add_key(current_key);
                     trick_list
@@ -143,7 +143,6 @@ fn trick_manager(
                             current_trick.last_trick_over.reset();
                             current_trick.last_trick_definition = Some(trick.clone());
                             println!("executing: {:?}", trick.name);
-                            
                         })
                         .or_else(|| {
                             if current_trick.keys.len() > 1 {
@@ -155,8 +154,6 @@ fn trick_manager(
                 }
                 _ => {}
             }
-
-            
         },
     );
 }

@@ -4,9 +4,17 @@ use bevy::{
     math::Vec2,
     time::{Timer, TimerMode},
 };
-use bevy_xpbd_2d::{plugins::PhysicsPlugins, resources::Gravity};
+use bevy_xpbd_2d::{plugins::PhysicsPlugins, prelude::PhysicsLayer, resources::Gravity};
 
-use crate::{models::Constants, LastJumpTime};
+use crate::{components_resources::LastJumpTime, models::Constants};
+
+#[derive(PhysicsLayer)]
+pub enum Layers {
+    Checkpoint,
+    Player,
+    Enemy,
+    Ground,
+}
 
 fn initialize_physics(mut commands: Commands, constants: Res<Constants>) {
     commands.insert_resource(LastJumpTime(Timer::from_seconds(

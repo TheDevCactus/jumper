@@ -17,13 +17,16 @@ use bevy_xpbd_2d::{
 use tiled::PropertyValue;
 
 use crate::{
-    models::Constants, BottomOfPlayerRayCast, CheckpointCheck, GroundedCheck, LastJumpTime,
-    LastKeyPressed, Layers, Player, Score, SquishCheck, TextureAtlasHandle, TiledMap, Tileset,
-    TilesetName,
+    components_resources::{
+        BottomOfPlayerRayCast, CheckpointCheck, GroundedCheck, LastJumpTime, LastKeyPressed,
+        Player, Score, SquishCheck, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
+    },
+    models::Constants,
 };
 
 use super::{
-    animation_manager::SpriteAnimationController, delete_manager::DeleteMe, trick_manager::Trick,
+    animation_manager::SpriteAnimationController, delete_manager::DeleteMe, physics::Layers,
+    trick_manager::Trick,
 };
 
 fn initialize_player(
@@ -127,7 +130,8 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
 ) {
     let (player_transform, mut player_lin_vel, player_collider) =
         player_query.iter_mut().next().unwrap();
-    if let Some((ray, hits)) = object_below_query.iter().next() { hits.iter_sorted()
+    if let Some((ray, hits)) = object_below_query.iter().next() {
+        hits.iter_sorted()
             .next()
             .map(|hit| (hit.entity, ray.origin + ray.direction * hit.time_of_impact))
             .map(|(entity, point_hit)| {
@@ -140,8 +144,8 @@ fn if_enemy_directly_below_player_and_falling_kill_enemy(
                         player_lin_vel.y += constants.squish_bounce_force;
                     });
                 }
-                
-            }); }
+            });
+    }
 }
 
 fn update_velocity_with_input(
@@ -197,7 +201,6 @@ fn update_velocity_with_input(
                     }
                 }
             }
-            
         });
 }
 
@@ -206,7 +209,8 @@ fn hit_checkmark(
     player_query: Query<(&Transform, &Collider), With<Player>>,
     checkmark_query: Query<(&RayCaster, &RayHits), With<CheckpointCheck>>,
 ) {
-    if let Some((ray, hits)) = checkmark_query.iter().next() { hits.iter_sorted().next().map(|hit| {
+    if let Some((ray, hits)) = checkmark_query.iter().next() {
+        hits.iter_sorted().next().map(|hit| {
             let hit_point = ray.origin + ray.direction * hit.time_of_impact;
             let distance_to_hit = player_query
                 .iter()
@@ -221,7 +225,8 @@ fn hit_checkmark(
                 return;
             }
             println!("hit checkmark");
-        }); }
+        });
+    }
 }
 
 pub struct PlayerManager;

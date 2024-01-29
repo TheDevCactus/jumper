@@ -10,7 +10,7 @@ use bevy::{
     utils::default,
 };
 
-use crate::Player;
+use crate::components_resources::Player;
 
 // inserts a camera bundle into our app
 fn insert_camera(mut commands: Commands) {
@@ -19,7 +19,9 @@ fn insert_camera(mut commands: Commands) {
 
 // initializes the cameras settings
 fn adjust_camera(mut camera_query: Query<&mut OrthographicProjection, With<Camera2d>>) {
-    if let Some(mut projection) = camera_query.iter_mut().next() { projection.scale /= 2.5; }
+    if let Some(mut projection) = camera_query.iter_mut().next() {
+        projection.scale /= 2.5;
+    }
 }
 
 // Updates the camera position to the players position
@@ -28,14 +30,10 @@ fn follow_player(
     player_query: Query<&Transform, (With<Player>, Without<Camera2d>)>,
 ) {
     player_query.iter().next().and_then(|player_transform| {
-        camera_query
-            .iter_mut()
-            .next()
-            .map(|mut camera_transform| {
-                camera_transform.translation.x = player_transform.translation.x;
-                camera_transform.translation.y = player_transform.translation.y;
-                
-            })
+        camera_query.iter_mut().next().map(|mut camera_transform| {
+            camera_transform.translation.x = player_transform.translation.x;
+            camera_transform.translation.y = player_transform.translation.y;
+        })
     });
 }
 
