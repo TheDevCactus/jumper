@@ -88,8 +88,10 @@ fn hit_checkmark(
 fn cleanup(
     mut commands: Commands,
     belongs_to_scene_query: Query<(Entity, &BelongsToScene)>,
+    mut level_state: ResMut<NextState<LevelState>>,
     current_scene: Res<State<Scene>>,
 ) {
+    level_state.set(LevelState::PrePlay);
     belongs_to_scene_query
         .iter()
         .for_each(|(entity, owned_by_scene)| {
@@ -146,7 +148,6 @@ fn handle_post_game_update(
     if end_level_timer.0.finished() {
         println!("level result 2: {:?}", level_result);
         scene_state.set(Scene::Home);
-        level_state.set(LevelState::PrePlay);
     }
 }
 
@@ -158,8 +159,6 @@ pub struct LevelStopwatch(Stopwatch);
 
 fn initialize_gui(mut commands: Commands, mut level_state: ResMut<NextState<LevelState>>,  asset_server: Res<AssetServer>) {
     // Text with multiple sections
-    println!("Initializing gui");
-    level_state.set(LevelState::PrePlay);
     let font = asset_server.load("PixelifySans-VariableFont_wght.ttf");
     commands.spawn((
         BelongsToScene(Scene::Level),
