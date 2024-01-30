@@ -53,7 +53,6 @@ fn update_level(
 ) {
     level_stopwatch.0.tick(time.delta());
     if keyboard_input.just_pressed(KeyCode::Space) {
-        println!("Space pressed");
         scene_state.set(Scene::Home);
     }
 }
@@ -79,7 +78,6 @@ fn hit_checkmark(
             if constants.grounded_threshold < distance_to_hit {
                 return;
             }
-            println!("HIT CHECKMARK");
             scene_state.set(LevelState::Over);
         });
     }
@@ -129,7 +127,6 @@ fn handle_enter_post_game(
         .unwrap_or(0);
     level_result.time = level_stopwatch.0.elapsed().as_millis() as usize;
     level_result.score = player_score;
-    println!("Level Result: {:?}", level_result);
     user_stats::record_level_result_to_user_stats(level_result.clone());
     commands.insert_resource(EndLevelTimer(Timer::new(
         Duration::from_secs(constants.post_level_secs),
@@ -146,7 +143,6 @@ fn handle_post_game_update(
 ) {
     end_level_timer.0.tick(time.delta());
     if end_level_timer.0.finished() {
-        println!("level result 2: {:?}", level_result);
         scene_state.set(Scene::Home);
     }
 }
@@ -206,8 +202,6 @@ fn create_post_game_gui(
         .map(|window| (window.width(), window.height()))
         .unwrap_or((0., 0.));
     let font = asset_server.load("PixelifySans-VariableFont_wght.ttf");
-    println!("mid height: {}", window.1);
-    println!("mid width: {}", window.0);
     // score text
     commands.spawn((
         BelongsToScene(Scene::Level),

@@ -89,7 +89,6 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>, scene: Res<
     map.0.layers().for_each(|layer| {
         if let Some(object_layer) = layer.as_object_layer() {
             object_layer.objects().for_each(|object| {
-                println!("{:?}", object.properties);
                 let mut object_dimensions = (0., 0.);
                 match object.shape {
                     tiled::ObjectShape::Rect { width, height } => {
@@ -140,7 +139,6 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>, scene: Res<
                                         ),
                                         CheckpointResource(Checkpoint::End),
                                     ));
-                                    println!("spawned start");
                                 }
                                 Some(())
                             }

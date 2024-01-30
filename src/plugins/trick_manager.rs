@@ -89,7 +89,6 @@ fn trick_manager(
                 && !current_trick.last_trick_over.finished()
                 && current_trick.last_trick_definition.is_some()
             {
-                println!("Failed trick");
                 current_trick.keys.clear();
                 current_trick.last_trick_definition = None;
                 return;
@@ -98,11 +97,6 @@ fn trick_manager(
                 && current_trick.last_trick_definition.is_some()
             {
                 score.0 += current_trick.last_trick_definition.as_ref().unwrap().points;
-                println!(
-                    "Score: {}, Landed: {:?}",
-                    score.0 * 10,
-                    current_trick.last_trick_definition.as_ref().unwrap().name
-                );
                 current_trick.keys.clear();
                 return;
             }
