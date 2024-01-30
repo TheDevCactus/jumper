@@ -1,10 +1,7 @@
 use std::time::Duration;
 
 use bevy::{
-    a11y::accesskit::Rect,
-    app::{App, Plugin, Update},
-    asset::AssetServer,
-    ecs::{
+    a11y::accesskit::Rect, app::{App, Plugin, Update}, asset::AssetServer, ecs::{
         component::Component,
         entity::Entity,
         query::With,
@@ -13,16 +10,7 @@ use bevy::{
             ScheduleLabel, State, States,
         },
         system::{Commands, NonSend, Query, Res, ResMut, Resource},
-    },
-    input::{keyboard::KeyCode, Input},
-    render::{color::Color, view::window},
-    text::{Text, TextSection, TextStyle},
-    time::{Stopwatch, Time, Timer},
-    transform::{commands, components::Transform},
-    ui::{node_bundles::TextBundle, AlignSelf, PositionType, Style, Val},
-    utils::default,
-    window::{PrimaryWindow, Window, WindowResolution},
-    winit::WinitWindows,
+    }, input::{keyboard::KeyCode, Input}, log::Level, render::{color::Color, view::window}, text::{Text, TextSection, TextStyle}, time::{Stopwatch, Time, Timer}, transform::{commands, components::Transform}, ui::{node_bundles::TextBundle, AlignSelf, PositionType, Style, Val}, utils::default, window::{PrimaryWindow, Window, WindowResolution}, winit::WinitWindows
 };
 use bevy_xpbd_2d::{
     components::Collider,
@@ -118,6 +106,7 @@ fn handle_enter_post_game(
     mut commands: Commands,
     mut level_result: ResMut<LevelResult>,
     level_stopwatch: ResMut<LevelStopwatch>,
+    level_id: Res<LevelID>,
     player_query: Query<&Score, With<Score>>,
 ) {
     let player_score = player_query
@@ -125,6 +114,7 @@ fn handle_enter_post_game(
         .next()
         .and_then(|score| Some(score.0))
         .unwrap_or(0);
+    level_result.level_id = level_id.0.clone();
     level_result.time = level_stopwatch.0.elapsed().as_millis() as usize;
     level_result.score = player_score;
     user_stats::record_level_result_to_user_stats(level_result.clone());
