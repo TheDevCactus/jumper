@@ -1,14 +1,4 @@
-use std::default;
-
-use bevy::{
-    app::{App, Plugin, Update},
-    ecs::{
-        schedule::{
-            common_conditions::in_state, IntoSystemConfigs, NodeConfigs, OnEnter, OnExit, States,
-        },
-        system::IntoSystem,
-    },
-};
+use bevy::{app::Plugin, ecs::schedule::States};
 use serde::{Deserialize, Serialize};
 
 use self::{home::HomeScene, level::LevelScene, map::MapScene};

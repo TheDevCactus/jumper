@@ -1,7 +1,7 @@
 map_name = "plains_2.tmx"
 character_sheet = "characters"
-player_speed = 900
-max_player_speed= 600
+player_speed = 700
+max_player_speed= 400
 jump_force= 6000
 initial_jump_time= 0.20
 gravity= 1200
