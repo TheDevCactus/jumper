@@ -303,6 +303,9 @@ fn update_gui(
     });
 }
 
+#[derive(Resource)]
+pub struct LevelID(pub String);
+
 pub struct LevelScene;
 impl Plugin for LevelScene {
     fn build(&self, app: &mut App) {

@@ -33,7 +33,7 @@ fn setup_home(mut commands: Commands) {
 }
 fn update_home(mut scene_state: ResMut<NextState<Scene>>, keyboard_input: Res<Input<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        scene_state.set(Scene::Level);
+        scene_state.set(Scene::Map);
     }
 }
 
