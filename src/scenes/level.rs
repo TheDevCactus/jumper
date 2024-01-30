@@ -79,6 +79,7 @@ fn hit_checkmark(
             if constants.grounded_threshold < distance_to_hit {
                 return;
             }
+            println!("HIT CHECKMARK");
             scene_state.set(LevelState::Over);
         });
     }
@@ -138,12 +139,14 @@ fn handle_post_game_update(
     time: Res<Time>,
     level_result: ResMut<LevelResult>,
     mut scene_state: ResMut<NextState<Scene>>,
+    mut level_state: ResMut<NextState<LevelState>>,
     mut end_level_timer: ResMut<EndLevelTimer>,
 ) {
     end_level_timer.0.tick(time.delta());
     if end_level_timer.0.finished() {
-        println!("level result: {:?}", level_result);
+        println!("level result 2: {:?}", level_result);
         scene_state.set(Scene::Home);
+        level_state.set(LevelState::PrePlay);
     }
 }
 
@@ -153,8 +156,10 @@ struct PointsText;
 #[derive(Resource, Clone, Debug)]
 pub struct LevelStopwatch(Stopwatch);
 
-fn initialize_gui(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn initialize_gui(mut commands: Commands, mut level_state: ResMut<NextState<LevelState>>,  asset_server: Res<AssetServer>) {
     // Text with multiple sections
+    println!("Initializing gui");
+    level_state.set(LevelState::PrePlay);
     let font = asset_server.load("PixelifySans-VariableFont_wght.ttf");
     commands.spawn((
         BelongsToScene(Scene::Level),
@@ -308,6 +313,7 @@ fn update_gui(
 pub struct LevelScene;
 impl Plugin for LevelScene {
     fn build(&self, app: &mut App) {
+        app.add_state::<LevelState>();
         app.insert_resource(LevelStopwatch(Stopwatch::new()));
         app.add_systems(OnEnter(Scene::Level), initialize_gui);
         app.insert_resource(LevelResult {
@@ -315,7 +321,6 @@ impl Plugin for LevelScene {
             score: 0,
             time: 0,
         });
-        app.add_state::<LevelState>();
         app.add_plugins((
             CameraControls {
                 startup: OnEnter(Scene::Level).intern(),
