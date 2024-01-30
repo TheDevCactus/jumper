@@ -1,31 +1,30 @@
 mod components_resources;
 mod models;
 mod plugins;
+mod scenes;
+mod service;
 
-use bevy::prelude::*;
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 use plugins::animation_manager::AnimationManager;
-use plugins::camera_controls::CameraControls;
 use plugins::config_loader::ConfigLoader;
 use plugins::delete_manager::DeleteManager;
-use plugins::level_loader::LevelLoader;
-use plugins::physics::PhysicsManager;
-use plugins::player_manager::PlayerManager;
-use plugins::trick_manager::TrickManager;
 
+use scenes::{home::HomeScene, level::LevelScene, map::MapScene, Scene};
 pub struct Game;
 impl Plugin for Game {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             DefaultPlugins,
-            ConfigLoader,
-            CameraControls,
-            LevelLoader,
-            PhysicsManager,
+            ConfigLoader {
+                pre_startup: PreStartup.intern(),
+            },
             AnimationManager,
             DeleteManager,
-            TrickManager,
-            PlayerManager,
-        ));
+        ))
+        .add_state::<Scene>()
+        .add_plugins(HomeScene)
+        .add_plugins(MapScene)
+        .add_plugins(LevelScene);
     }
 }
 

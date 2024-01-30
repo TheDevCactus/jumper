@@ -3,18 +3,25 @@ use bevy::{
     core_pipeline::core_2d::{Camera2d, Camera2dBundle},
     ecs::{
         query::{With, Without},
-        system::{Commands, Query},
+        schedule::{
+            apply_deferred, common_conditions::in_state, IntoSystemConfigs, ScheduleLabel, State,
+            SystemConfigs,
+        },
+        system::{Commands, Query, Res, System},
     },
     render::camera::OrthographicProjection,
     transform::components::Transform,
-    utils::default,
+    utils::{default, intern::Interned},
 };
 
-use crate::components_resources::Player;
+use crate::{components_resources::Player, models::BelongsToScene, scenes::Scene};
 
 // inserts a camera bundle into our app
-fn insert_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle { ..default() });
+fn insert_camera(mut commands: Commands, scene: Res<State<Scene>>) {
+    commands.spawn((
+        Camera2dBundle { ..default() },
+        BelongsToScene(scene.clone()),
+    ));
 }
 
 // initializes the cameras settings
@@ -37,11 +44,16 @@ fn follow_player(
     });
 }
 
-pub struct CameraControls;
+pub struct CameraControls {
+    pub startup: Interned<dyn ScheduleLabel>,
+    pub scene: Scene,
+}
 impl Plugin for CameraControls {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreStartup, insert_camera);
-        app.add_systems(PostStartup, adjust_camera);
-        app.add_systems(Update, follow_player);
+        app.add_systems(
+            self.startup,
+            (insert_camera, apply_deferred, adjust_camera).chain(),
+        );
+        app.add_systems(Update, follow_player.run_if(in_state(self.scene)));
     }
 }

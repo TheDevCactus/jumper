@@ -2,6 +2,7 @@ use bevy::{
     app::{App, Plugin, PostStartup, Update},
     ecs::{
         query::With,
+        schedule::{common_conditions::in_state, IntoSystemConfigs, State},
         system::{Commands, Query, Res, ResMut},
     },
     input::{keyboard::KeyCode, Input},
@@ -21,7 +22,9 @@ use crate::{
         BottomOfPlayerRayCast, CheckpointCheck, GroundedCheck, LastJumpTime, LastKeyPressed,
         Player, Score, SquishCheck, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
     },
-    models::Constants,
+    models::BelongsToScene,
+    scenes::Scene,
+    service::constants::Constants,
 };
 
 use super::{
@@ -29,11 +32,12 @@ use super::{
     trick_manager::Trick,
 };
 
-fn initialize_player(
+pub fn initialize_player(
     mut commands: Commands,
     map: Res<TiledMap>,
     constants: Res<Constants>,
     other_atlases: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
+    scene: Res<State<Scene>>,
 ) {
     let player_spawn = map.0.layers().find_map(|layer| {
         layer
@@ -69,6 +73,7 @@ fn initialize_player(
         .unwrap();
     // @TODO handle error here
     commands.spawn((
+        BelongsToScene(scene.clone()),
         Player,
         Trick::new(),
         Score(0),
@@ -91,6 +96,7 @@ fn initialize_player(
         SpriteAnimationController::new(26, 29, 100.),
     ));
     commands.spawn((
+        BelongsToScene(scene.clone()),
         RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
             .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Ground])),
         GroundedCheck,
@@ -98,6 +104,7 @@ fn initialize_player(
     ));
 
     commands.spawn((
+        BelongsToScene(scene.clone()),
         RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
             .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Checkpoint])),
         CheckpointCheck,
@@ -105,6 +112,7 @@ fn initialize_player(
     ));
 
     commands.spawn((
+        BelongsToScene(scene.clone()),
         RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
             .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Enemy])),
         SquishCheck,
@@ -204,42 +212,17 @@ fn update_velocity_with_input(
         });
 }
 
-fn hit_checkmark(
-    constants: Res<Constants>,
-    player_query: Query<(&Transform, &Collider), With<Player>>,
-    checkmark_query: Query<(&RayCaster, &RayHits), With<CheckpointCheck>>,
-) {
-    if let Some((ray, hits)) = checkmark_query.iter().next() {
-        hits.iter_sorted().next().map(|hit| {
-            let hit_point = ray.origin + ray.direction * hit.time_of_impact;
-            let distance_to_hit = player_query
-                .iter()
-                .next()
-                .map(|(transform, collider)| {
-                    let player_y = transform.translation.y
-                        - collider.shape().as_cuboid().unwrap().half_extents[1];
-                    player_y - hit_point.y
-                })
-                .unwrap_or(99999.);
-            if constants.grounded_threshold < distance_to_hit {
-                return;
-            }
-            println!("hit checkmark");
-        });
-    }
+pub struct PlayerManager {
+    pub scene: Scene,
 }
-
-pub struct PlayerManager;
 impl Plugin for PlayerManager {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostStartup, initialize_player);
         app.add_systems(
             Update,
             (
-                update_bottom_of_player_raycasts,
-                if_enemy_directly_below_player_and_falling_kill_enemy,
-                update_velocity_with_input,
-                hit_checkmark,
+                update_bottom_of_player_raycasts.run_if(in_state(self.scene)),
+                if_enemy_directly_below_player_and_falling_kill_enemy.run_if(in_state(self.scene)),
+                update_velocity_with_input.run_if(in_state(self.scene)),
             ),
         );
     }

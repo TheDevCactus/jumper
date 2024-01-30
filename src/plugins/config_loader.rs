@@ -1,9 +1,13 @@
 use bevy::{
     app::{App, Plugin, PreStartup},
-    ecs::system::Commands,
+    ecs::{schedule::ScheduleLabel, system::Commands},
+    utils::intern::Interned,
 };
 
-use crate::models::{Constants, TrickList, TrickListResource};
+use crate::{
+    models::{TrickList, TrickListResource},
+    service::{constants::Constants, user_stats},
+};
 
 fn initialize_constants(mut commands: Commands) {
     let raw = std::fs::read_to_string("./assets/constants.toml").unwrap();
@@ -23,10 +27,25 @@ fn initialize_trick_list(mut commands: Commands) {
     commands.insert_resource(TrickListResource(trick_list));
 }
 
-pub struct ConfigLoader;
+pub struct ConfigLoader {
+    pub pre_startup: Interned<dyn ScheduleLabel>,
+}
+
+fn write_data_files() {
+    if let None = user_stats::UserStats::load_from_file() {
+        user_stats::create_user_stats_file();
+    }
+}
 
 impl Plugin for ConfigLoader {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreStartup, (initialize_trick_list, initialize_constants));
+        app.add_systems(
+            PreStartup,
+            (
+                initialize_trick_list,
+                initialize_constants,
+                write_data_files,
+            ),
+        );
     }
 }

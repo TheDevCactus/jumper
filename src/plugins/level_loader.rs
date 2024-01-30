@@ -1,12 +1,16 @@
 use bevy::{
     app::{App, Plugin, PostStartup, Startup},
     asset::AssetServer,
-    ecs::system::{Commands, Query, Res},
+    ecs::{
+        schedule::{apply_deferred, IntoSystemConfigs, ScheduleLabel, State},
+        system::{Commands, Query, Res},
+    },
     log::warn,
     math::{Vec2, Vec3},
     render::color::Color,
     sprite::{Sprite, SpriteBundle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite},
     transform::components::Transform,
+    utils::intern::Interned,
 };
 use bevy_xpbd_2d::components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, RigidBody};
 use tiled::{Loader, PropertyValue};
@@ -16,14 +20,19 @@ use crate::{
         Checkpoint, CheckpointResource, Collision, Enemy, Object, ObjectComponent, Platform, Point,
         Size, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
     },
-    models::Constants,
+    models::BelongsToScene,
     plugins::physics::Layers,
+    scenes::Scene,
+    service::constants::Constants,
 };
+
+use super::player_manager::initialize_player;
 
 pub fn initialize_tiled_map(
     mut commands: Commands,
     constants: Res<Constants>,
     asset_server: Res<AssetServer>,
+    scene: Res<State<Scene>>,
 ) {
     let mut loader = Loader::new();
     let file_path = format!("./assets/{}", constants.map_name);
@@ -44,6 +53,7 @@ pub fn initialize_tiled_map(
         );
         let handle = asset_server.add(atlas);
         commands.spawn((
+            BelongsToScene(scene.clone()),
             TilesetName(tileset.name.clone()),
             TextureAtlasHandle(handle.clone()),
         ));
@@ -67,6 +77,7 @@ pub fn initialize_tiled_map(
     );
     let handle = asset_server.add(atlas);
     commands.spawn((
+        BelongsToScene(scene.clone()),
         TilesetName(characters.name.clone()),
         TextureAtlasHandle(handle.clone()),
         Tileset(characters),
@@ -74,7 +85,7 @@ pub fn initialize_tiled_map(
     commands.insert_resource(TiledMap(map));
 }
 
-fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
+fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>, scene: Res<State<Scene>>) {
     map.0.layers().for_each(|layer| {
         if let Some(object_layer) = layer.as_object_layer() {
             object_layer.objects().for_each(|object| {
@@ -96,6 +107,7 @@ fn initialize_checkmarks(mut commands: Commands, map: Res<TiledMap>) {
                             PropertyValue::StringValue(checkpoint_type) => {
                                 if checkpoint_type == "end" {
                                     commands.spawn((
+                                        BelongsToScene(scene.clone()),
                                         ObjectComponent(Object {
                                             position: Point {
                                                 x: object.x,
@@ -144,6 +156,7 @@ fn initialize_enemy_spawns(
     map: Res<TiledMap>,
     constants: Res<Constants>,
     texture_atlas: Query<(&TextureAtlasHandle, &TilesetName, &Tileset)>,
+    scene: Res<State<Scene>>,
 ) {
     map.0.layers().for_each(|layer| {
         if let Some(object_layer) = layer.as_object_layer() {
@@ -159,6 +172,7 @@ fn initialize_enemy_spawns(
                                 .unwrap();
                             if id == "enemy_1" {
                                 commands.spawn((
+                                    BelongsToScene(scene.clone()),
                                     Enemy,
                                     Collider::cuboid(
                                         character_atlas.2 .0.tile_width as f32,
@@ -207,6 +221,7 @@ fn initialize_map_collisions(
     mut commands: Commands,
     map: Res<TiledMap>,
     texture_atlas: Res<TextureAtlasHandle>,
+    scene: Res<State<Scene>>,
 ) {
     map.0.layers().enumerate().for_each(|(layer_index, layer)| {
         layer.as_tile_layer().map(|tile_layer| {
@@ -223,6 +238,7 @@ fn initialize_map_collisions(
                                             let tile_pos =
                                                 (col * map.0.tile_width, row * map.0.tile_height);
                                             commands.spawn((
+                                                BelongsToScene(scene.clone()),
                                                 Platform,
                                                 Collision,
                                                 Collider::cuboid(width, height),
@@ -271,6 +287,7 @@ fn initialize_map_collisions(
                             None => {
                                 let tile_pos = (col * map.0.tile_width, row * map.0.tile_height);
                                 commands.spawn((
+                                    BelongsToScene(scene.clone()),
                                     ObjectComponent(Object {
                                         position: Point {
                                             x: tile_pos.0 as f32,
@@ -306,18 +323,28 @@ fn initialize_map_collisions(
     });
 }
 
-pub struct LevelLoader;
+pub struct LevelLoader {
+    pub startup: Interned<dyn ScheduleLabel>,
+    // pub post_startup: Interned<dyn ScheduleLabel>,
+}
+
 impl Plugin for LevelLoader {
     fn build(&self, app: &mut App) {
         // @todo this is kinda jank, fix later
-        app.add_systems(Startup, initialize_tiled_map);
         app.add_systems(
-            PostStartup,
+            self.startup,
             (
-                initialize_checkmarks,
-                initialize_map_collisions,
-                initialize_enemy_spawns,
-            ),
+                initialize_tiled_map,
+                apply_deferred,
+                (
+                    initialize_checkmarks,
+                    initialize_map_collisions,
+                    initialize_enemy_spawns,
+                    // @TODO this should be in player but needs to be ran after tiled map is initialized
+                    initialize_player,
+                ),
+            )
+                .chain(),
         );
     }
 }

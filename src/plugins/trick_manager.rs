@@ -5,11 +5,13 @@ use bevy::{
     ecs::{
         component::Component,
         query::With,
+        schedule::{common_conditions::in_state, IntoSystemConfigs, ScheduleLabel},
         system::{Query, Res, ResMut, Resource},
     },
     input::{keyboard::KeyCode, Input},
     time::{Time, Timer, TimerMode},
     transform::components::Transform,
+    utils::intern::Interned,
 };
 use bevy_xpbd_2d::{
     components::{Collider, LinearVelocity},
@@ -18,7 +20,9 @@ use bevy_xpbd_2d::{
 
 use crate::{
     components_resources::{GroundedCheck, LastKeyPressed, Player, Score},
-    models::{Constants, TrickDefinition, TrickListResource},
+    models::{TrickDefinition, TrickListResource},
+    scenes::Scene,
+    service::constants::Constants,
 };
 
 #[derive(Component, Resource)]
@@ -158,9 +162,11 @@ fn trick_manager(
     );
 }
 
-pub struct TrickManager;
+pub struct TrickManager {
+    pub scene: Scene,
+}
 impl Plugin for TrickManager {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, trick_manager);
+        app.add_systems(Update, trick_manager.run_if(in_state(self.scene)));
     }
 }
