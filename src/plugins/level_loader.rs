@@ -22,7 +22,7 @@ use crate::{
     },
     models::BelongsToScene,
     plugins::physics::Layers,
-    scenes::Scene,
+    scenes::{level::LevelID, Scene},
     service::constants::Constants,
 };
 
@@ -31,11 +31,12 @@ use super::player_manager::initialize_player;
 pub fn initialize_tiled_map(
     mut commands: Commands,
     constants: Res<Constants>,
+    level_id: Res<LevelID>,
     asset_server: Res<AssetServer>,
     scene: Res<State<Scene>>,
 ) {
     let mut loader = Loader::new();
-    let file_path = format!("./assets/{}", constants.map_name);
+    let file_path = format!("./assets/{}", level_id.0);
     let map = loader.load_tmx_map(file_path).unwrap();
     let tilesets = map.tilesets();
     for tileset in tilesets {

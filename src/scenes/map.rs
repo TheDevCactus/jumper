@@ -18,14 +18,14 @@ fn update_home(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>, mut 
     // set the resource LevelID to "plains_1"
     if keyboard_input.just_pressed(KeyCode::Key1) {
         println!("LevelID set to plains_1");
-        commands.insert_resource( LevelID("plains_1".to_string()));
+        commands.insert_resource( LevelID("untitled_old.tmx".to_string()));
         should_nav = true;
     }
     // if keyboard input number 2 is pressed
     // set the resource LevelID to "plains_2"
     if keyboard_input.just_pressed(KeyCode::Key2) {
         println!("LevelID set to plains_2");
-        commands.insert_resource( LevelID("plains_2".to_string()));
+        commands.insert_resource( LevelID("plains_2.tmx".to_string()));
         should_nav = true;
     }
     // if keyboard input number 3 is pressed
