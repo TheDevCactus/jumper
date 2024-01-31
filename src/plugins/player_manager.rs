@@ -241,7 +241,7 @@ fn update_velocity_with_input(
             let distance_to_right = right_side_query
                 .iter_mut()
                 .map(|(ray, hits)| {
-                    hits.iter().next().map(|hit| {
+                    hits.iter_sorted().next().map(|hit| {
                         (transform.translation.x
                             - collider.shape().as_cuboid().unwrap().half_extents[0])
                             - (ray.origin + ray.direction * hit.time_of_impact).x
@@ -250,10 +250,9 @@ fn update_velocity_with_input(
                 .next();
             if let Some(distance_to_right) = distance_to_right {
                 if let Some(distance_to_right) = distance_to_right {
-                    println!("{:?}", distance_to_right);
                     if distance_to_right.abs() < constants.wall_threshold + 32. {
                         if keyboard_input.pressed(KeyCode::Back) {
-                            velocity.y += constants.jump_force * time.delta_seconds();
+                            velocity.y += (constants.jump_force / 2.) * time.delta_seconds();
                             velocity.x -= constants.dash_force * time.delta_seconds();
                         }
                     }
@@ -262,7 +261,7 @@ fn update_velocity_with_input(
             let distance_to_left = left_side_query
                 .iter_mut()
                 .map(|(ray, hits)| {
-                    hits.iter().next().map(|hit| {
+                    hits.iter_sorted().next().map(|hit| {
                         (transform.translation.x
                             + collider.shape().as_cuboid().unwrap().half_extents[0])
                             - (ray.origin + ray.direction * hit.time_of_impact).x
@@ -271,7 +270,6 @@ fn update_velocity_with_input(
                 .next();
             if let Some(distance_to_left) = distance_to_left {
                 if let Some(distance_to_left) = distance_to_left {
-                    println!("{:?}", distance_to_left);
                     if distance_to_left.abs() < constants.wall_threshold + 32. {
                         if keyboard_input.pressed(KeyCode::Back) {
                             velocity.y += constants.jump_force * time.delta_seconds();
@@ -290,12 +288,8 @@ fn update_velocity_with_input(
                     }
                     if keyboard_input.pressed(KeyCode::D) {
                         velocity.x += constants.player_speed * time.delta_seconds();
-                        if constants.max_player_speed < velocity.x.abs() {
-                            if velocity.x < 0. {
-                                velocity.x = -constants.max_player_speed;
-                            } else {
-                                velocity.x = constants.max_player_speed;
-                            }
+                        if constants.max_player_speed < velocity.x {
+                            velocity.x = constants.max_player_speed;
                         }
                     }
                 }

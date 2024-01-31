@@ -1,14 +1,6 @@
 {
   "tricks": [
     [
-      ["W", "A", "W"],
-      {
-        "points": 10,
-        "takes_ms": 100,
-        "name": "wow flip"
-      }
-    ],
-    [
       ["W", "W"],
       {
         "points": 100,

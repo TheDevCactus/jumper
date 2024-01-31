@@ -15,7 +15,7 @@ use bevy::{
 };
 use bevy_xpbd_2d::{
     components::{Collider, LinearVelocity},
-    plugins::spatial_query::{RayCaster, RayHits},
+    plugins::spatial_query::{RayCaster, RayHits, ShapeCaster, ShapeHits},
 };
 
 use crate::{
@@ -47,7 +47,7 @@ impl Trick {
 fn trick_manager(
     time: Res<Time>,
     constants: Res<Constants>,
-    mut object_below_query: Query<(&RayCaster, &RayHits), With<GroundedCheck>>,
+    mut object_below_query: Query<(&ShapeCaster, &ShapeHits), With<GroundedCheck>>,
     keyboard_input: Res<Input<KeyCode>>,
     mut trick_list: ResMut<TrickListResource>,
     mut player_query: Query<
@@ -77,7 +77,7 @@ fn trick_manager(
                 .iter_mut()
                 .next()
                 .and_then(|(ray, hits)| {
-                    hits.iter_sorted()
+                    hits.iter()
                         .next()
                         .map(|hit| (ray.origin + ray.direction * hit.time_of_impact).y)
                 })
@@ -89,14 +89,19 @@ fn trick_manager(
                 && !current_trick.last_trick_over.finished()
                 && current_trick.last_trick_definition.is_some()
             {
+                println!("CANCELED TRICK: {:?}", current_trick.last_trick_definition);
                 current_trick.keys.clear();
                 current_trick.last_trick_definition = None;
                 return;
+            }
+            if current_trick.last_trick_over.just_finished() {
+                println!("last trick over, {:?}", current_trick.last_trick_definition);
             }
             if current_trick.last_trick_over.just_finished()
                 && current_trick.last_trick_definition.is_some()
             {
                 score.0 += current_trick.last_trick_definition.as_ref().unwrap().points;
+                println!("score: {}", score.0);
                 current_trick.keys.clear();
                 return;
             }
@@ -134,6 +139,7 @@ fn trick_manager(
                         .0
                         .find_trick(&current_trick.keys)
                         .map(|trick| {
+                            println!("found trick: {:?}", trick.name);
                             current_trick.keys.clear();
                             current_trick
                                 .last_trick_over
