@@ -39,6 +39,12 @@ pub struct Collision;
 pub struct Enemy;
 
 #[derive(Component)]
+pub struct RightSideOfPlayerCast;
+
+#[derive(Component)]
+pub struct LeftSideOfPlayerCast;
+
+#[derive(Component)]
 pub struct BottomOfPlayerRayCast;
 
 #[derive(Component)]

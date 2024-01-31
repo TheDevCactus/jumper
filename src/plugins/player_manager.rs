@@ -1,26 +1,31 @@
+use std::{ops::Add, path::Display};
+
 use bevy::{
     app::{App, Plugin, PostStartup, Update},
     ecs::{
-        query::With,
+        query::{With, Without},
         schedule::{common_conditions::in_state, IntoSystemConfigs, State},
         system::{Commands, Query, Res, ResMut},
     },
     input::{keyboard::KeyCode, Input},
-    math::{Vec2, Vec3},
-    sprite::{SpriteSheetBundle, TextureAtlasSprite},
+    math::{Quat, Vec2, Vec3},
+    sprite::{SpriteBundle, SpriteSheetBundle, TextureAtlasSprite},
     time::Time,
     transform::components::Transform,
 };
 use bevy_xpbd_2d::{
     components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, Restitution, RigidBody},
-    plugins::spatial_query::{RayCaster, RayHits, SpatialQueryFilter},
+    math::Scalar,
+    parry::{either::Either::Left, na::RealField},
+    plugins::spatial_query::{RayCaster, RayHits, ShapeCaster, ShapeHits, SpatialQueryFilter},
 };
 use tiled::PropertyValue;
 
 use crate::{
     components_resources::{
         BottomOfPlayerRayCast, CheckpointCheck, GroundedCheck, LastJumpTime, LastKeyPressed,
-        Player, Score, SquishCheck, TextureAtlasHandle, TiledMap, Tileset, TilesetName,
+        LeftSideOfPlayerCast, Player, RightSideOfPlayerCast, Score, SquishCheck,
+        TextureAtlasHandle, TiledMap, Tileset, TilesetName,
     },
     models::BelongsToScene,
     scenes::Scene,
@@ -97,10 +102,28 @@ pub fn initialize_player(
     ));
     commands.spawn((
         BelongsToScene(scene.clone()),
-        RayCaster::new(Vec2::ZERO, Vec2::NEG_Y)
-            .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Ground])),
+        ShapeCaster::new(
+            Collider::cuboid(char_tileset.0.tile_width as f32, 5.),
+            Vec2::ZERO,
+            Scalar::default(),
+            Vec2::NEG_Y,
+        )
+        .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Ground])),
         GroundedCheck,
         BottomOfPlayerRayCast,
+    ));
+
+    commands.spawn((
+        BelongsToScene(scene.clone()),
+        RightSideOfPlayerCast,
+        RayCaster::new(Vec2::ZERO, Vec2::X)
+            .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Ground])),
+    ));
+    commands.spawn((
+        BelongsToScene(scene.clone()),
+        LeftSideOfPlayerCast,
+        RayCaster::new(Vec2::ZERO, Vec2::NEG_X)
+            .with_query_filter(SpatialQueryFilter::new().with_masks([Layers::Ground])),
     ));
 
     commands.spawn((
@@ -120,13 +143,41 @@ pub fn initialize_player(
     ));
 }
 
+fn update_sides_of_player_raycasts(
+    mut left_ray_query: Query<
+        &mut RayCaster,
+        (With<LeftSideOfPlayerCast>, Without<RightSideOfPlayerCast>),
+    >,
+    mut right_ray_query: Query<
+        &mut RayCaster,
+        (With<RightSideOfPlayerCast>, Without<LeftSideOfPlayerCast>),
+    >,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    let player_transform = player_query.iter().next().unwrap();
+    let new_pos = player_transform.translation.truncate();
+    left_ray_query
+        .iter_mut()
+        .for_each(|mut ray| ray.origin = new_pos);
+    right_ray_query
+        .iter_mut()
+        .for_each(|mut ray| ray.origin = new_pos);
+}
+
 fn update_bottom_of_player_raycasts(
     mut ray_query: Query<&mut RayCaster, With<BottomOfPlayerRayCast>>,
+    mut shape_query: Query<&mut ShapeCaster, With<BottomOfPlayerRayCast>>,
     player_query: Query<&Transform, With<Player>>,
 ) {
     let player_transform = player_query.iter().next().unwrap();
     ray_query.iter_mut().for_each(|mut ray| {
         ray.origin = player_transform.translation.truncate();
+    });
+    shape_query.iter_mut().for_each(|mut shape| {
+        shape.origin = player_transform
+            .translation
+            .truncate()
+            .add(Vec2::new(0., -16.));
     });
 }
 
@@ -162,7 +213,15 @@ fn update_velocity_with_input(
     mut time_since_last_jump: ResMut<LastJumpTime>,
     constants: Res<Constants>,
     mut player_query: Query<(&mut LinearVelocity, &Transform, &Collider), With<Player>>,
-    mut object_below_query: Query<(&mut RayCaster, &RayHits), With<GroundedCheck>>,
+    mut object_below_query: Query<(&mut ShapeCaster, &ShapeHits), With<GroundedCheck>>,
+    mut right_side_query: Query<
+        (&mut RayCaster, &RayHits),
+        (With<RightSideOfPlayerCast>, Without<LeftSideOfPlayerCast>),
+    >,
+    mut left_side_query: Query<
+        (&mut RayCaster, &RayHits),
+        (With<LeftSideOfPlayerCast>, Without<RightSideOfPlayerCast>),
+    >,
 ) {
     player_query
         .iter_mut()
@@ -173,12 +232,54 @@ fn update_velocity_with_input(
                     .iter_mut()
                     .next()
                     .and_then(|(ray, hits)| {
-                        hits.iter_sorted().next().map(|hit| {
+                        hits.iter().next().map(|hit| {
                             (transform.translation.y
                                 - collider.shape().as_cuboid().unwrap().half_extents[1])
                                 - (ray.origin + ray.direction * hit.time_of_impact).y
                         })
                     });
+            let distance_to_right = right_side_query
+                .iter_mut()
+                .map(|(ray, hits)| {
+                    hits.iter().next().map(|hit| {
+                        (transform.translation.x
+                            - collider.shape().as_cuboid().unwrap().half_extents[0])
+                            - (ray.origin + ray.direction * hit.time_of_impact).x
+                    })
+                })
+                .next();
+            if let Some(distance_to_right) = distance_to_right {
+                if let Some(distance_to_right) = distance_to_right {
+                    println!("{:?}", distance_to_right);
+                    if distance_to_right.abs() < constants.wall_threshold + 32. {
+                        if keyboard_input.pressed(KeyCode::Back) {
+                            velocity.y += constants.jump_force * time.delta_seconds();
+                            velocity.x -= constants.dash_force * time.delta_seconds();
+                        }
+                    }
+                }
+            }
+            let distance_to_left = left_side_query
+                .iter_mut()
+                .map(|(ray, hits)| {
+                    hits.iter().next().map(|hit| {
+                        (transform.translation.x
+                            + collider.shape().as_cuboid().unwrap().half_extents[0])
+                            - (ray.origin + ray.direction * hit.time_of_impact).x
+                    })
+                })
+                .next();
+            if let Some(distance_to_left) = distance_to_left {
+                if let Some(distance_to_left) = distance_to_left {
+                    println!("{:?}", distance_to_left);
+                    if distance_to_left.abs() < constants.wall_threshold + 32. {
+                        if keyboard_input.pressed(KeyCode::Back) {
+                            velocity.y += constants.jump_force * time.delta_seconds();
+                            velocity.x += constants.dash_force * time.delta_seconds();
+                        }
+                    }
+                }
+            }
             if let Some(distance_to_ground) = distance_to_closest_ground {
                 if distance_to_ground < constants.grounded_threshold {
                     if keyboard_input.pressed(KeyCode::A) {
@@ -190,7 +291,11 @@ fn update_velocity_with_input(
                     if keyboard_input.pressed(KeyCode::D) {
                         velocity.x += constants.player_speed * time.delta_seconds();
                         if constants.max_player_speed < velocity.x.abs() {
-                            velocity.x = constants.max_player_speed;
+                            if velocity.x < 0. {
+                                velocity.x = -constants.max_player_speed;
+                            } else {
+                                velocity.x = constants.max_player_speed;
+                            }
                         }
                     }
                 }
@@ -220,6 +325,7 @@ impl Plugin for PlayerManager {
         app.add_systems(
             Update,
             (
+                update_sides_of_player_raycasts.run_if(in_state(self.scene)),
                 update_bottom_of_player_raycasts.run_if(in_state(self.scene)),
                 if_enemy_directly_below_player_and_falling_kill_enemy.run_if(in_state(self.scene)),
                 update_velocity_with_input.run_if(in_state(self.scene)),

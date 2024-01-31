@@ -21,6 +21,7 @@ pub struct Constants {
     pub curve_pow: f32,
     pub grounded_decay: f32,
     pub grounded_threshold: f32,
+    pub wall_threshold: f32,
     pub path_to_player_data: String,
 }
 

@@ -12,4 +12,5 @@ trick_time = 500
 dash_force = 5000
 curve_pow= 1.2
 grounded_decay = 0.2
+wall_threshold = 5
 grounded_threshold = 1

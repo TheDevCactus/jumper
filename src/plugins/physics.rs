@@ -1,6 +1,5 @@
 use bevy::{
-    app::{App, Plugin, PreUpdate, Startup},
-    asset::io::AssetWriter,
+    app::{App, Plugin, PreUpdate},
     ecs::{
         schedule::ScheduleLabel,
         system::{Commands, Res},
