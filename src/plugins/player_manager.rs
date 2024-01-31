@@ -14,7 +14,9 @@ use bevy::{
     transform::components::Transform,
 };
 use bevy_xpbd_2d::{
-    components::{Collider, CollisionLayers, LinearVelocity, LockedAxes, Restitution, RigidBody},
+    components::{
+        Collider, CollisionLayers, Friction, LinearVelocity, LockedAxes, Restitution, RigidBody,
+    },
     math::Scalar,
     parry::{either::Either::Left, na::RealField},
     plugins::spatial_query::{RayCaster, RayHits, ShapeCaster, ShapeHits, SpatialQueryFilter},
@@ -285,8 +287,7 @@ fn update_velocity_with_input(
                         if constants.max_player_speed < velocity.x.abs() {
                             velocity.x = -constants.max_player_speed;
                         }
-                    }
-                    if keyboard_input.pressed(KeyCode::D) {
+                    } else if keyboard_input.pressed(KeyCode::D) {
                         velocity.x += constants.player_speed * time.delta_seconds();
                         if constants.max_player_speed < velocity.x {
                             velocity.x = constants.max_player_speed;

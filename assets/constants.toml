@@ -1,6 +1,6 @@
 map_name = "plains_2.tmx"
 character_sheet = "characters"
-player_speed = 700
+player_speed = 1200
 max_player_speed= 400
 jump_force= 6000
 initial_jump_time= 0.20
@@ -11,6 +11,6 @@ squish_bounce_force = 200
 trick_time = 500
 dash_force = 5000
 curve_pow= 1.2
-grounded_decay = 1.2
+grounded_decay = 0.99
 wall_threshold = 5
 grounded_threshold = 1

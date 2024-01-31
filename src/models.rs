@@ -58,3 +58,10 @@ pub struct TrickListResource(pub TrickList);
 
 #[derive(Component)]
 pub struct BelongsToScene(pub Scene);
+
+#[derive(Resource, Debug, Clone, Serialize, Deserialize)]
+pub struct ElementBars {
+    pub heal: usize,
+    pub power: usize,
+    pub shoot: usize,
+}

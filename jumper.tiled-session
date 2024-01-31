@@ -24,11 +24,11 @@
             "expandedObjectLayers": [
                 2
             ],
-            "scale": 1.5,
+            "scale": 0.5,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 613.6666666666665,
-                "y": 385.33333333333337
+                "x": 1441,
+                "y": 512
             }
         },
         "assets/sheet.tsx": {

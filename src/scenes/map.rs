@@ -47,7 +47,7 @@ fn update_home(
     // set the resource LevelID to "plains_4"
     if keyboard_input.just_pressed(KeyCode::Key4) {
         println!("LevelID set to plains_4");
-        commands.insert_resource(LevelID("plains_4".to_string()));
+        commands.insert_resource(LevelID("long.tmx".to_string()));
         should_nav = true;
     }
     // if keyboard input number 5 is pressed
